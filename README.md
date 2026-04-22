@@ -1,6 +1,6 @@
 # baaba_extensions
 
-A Flutter/Dart extension package that adds expressive, null-safe helpers to common types — strings, numbers, lists, widgets, dates, booleans, and `BuildContext`.
+A Flutter/Dart extension package that adds expressive, null-safe helpers to common types — strings, numbers, lists, widgets, dates, booleans, `BuildContext`, and beautiful customizable dialogs.
 
 ## Installation
 
@@ -209,6 +209,72 @@ context.isKeyboardVisible// true if keyboard is open
 
 ---
 
+### `DialogX` — on `BuildContext`
+
+Beautiful, fully customizable confirmation and information dialogs.
+
+#### Confirmation dialog
+
+Returns `true` if confirmed, `false` if cancelled, `null` if dismissed by tapping outside.
+
+```dart
+final confirmed = await context.showConfirmDialog(
+  title: 'Delete Account',
+  message: 'All your data will be permanently removed.',
+  confirmText: 'Delete',
+  cancelText: 'Keep it',
+  confirmColor: Colors.red,
+  icon: Icons.delete_outline_rounded,
+);
+
+if (confirmed == true) deleteAccount();
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `title` | `String` | required | Dialog title |
+| `message` | `String` | required | Body text |
+| `confirmText` | `String` | `'Confirm'` | Confirm button label |
+| `cancelText` | `String` | `'Cancel'` | Cancel button label |
+| `onConfirm` | `VoidCallback?` | — | Called after confirm tap |
+| `onCancel` | `VoidCallback?` | — | Called after cancel tap |
+| `confirmColor` | `Color?` | global | Confirm button + icon color |
+| `cancelColor` | `Color?` | global | Cancel button color |
+| `icon` | `IconData` | `Icons.help_outline_rounded` | Icon shown at the top |
+| `backgroundColor` | `Color?` | theme surface | Dialog background |
+| `titleStyle` | `TextStyle?` | theme | Title text style |
+| `messageStyle` | `TextStyle?` | theme | Message text style |
+| `borderRadius` | `BorderRadius?` | global `circular(24)` | Dialog corner radius |
+| `barrierDismissible` | `bool` | `true` | Tap-outside to dismiss |
+
+#### Information dialog
+
+```dart
+await context.showInfoDialog(
+  title: 'Profile Updated',
+  message: 'Your changes have been saved successfully.',
+  closeText: 'Great!',
+  icon: Icons.check_circle_outline_rounded,
+  accentColor: Colors.green,
+);
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `title` | `String` | required | Dialog title |
+| `message` | `String` | required | Body text |
+| `closeText` | `String` | `'Got it'` | Close button label |
+| `onClose` | `VoidCallback?` | — | Called after close tap |
+| `accentColor` | `Color?` | global | Close button + icon color |
+| `icon` | `IconData` | `Icons.info_outline_rounded` | Icon shown at the top |
+| `backgroundColor` | `Color?` | theme surface | Dialog background |
+| `titleStyle` | `TextStyle?` | theme | Title text style |
+| `messageStyle` | `TextStyle?` | theme | Message text style |
+| `borderRadius` | `BorderRadius?` | global `circular(24)` | Dialog corner radius |
+| `barrierDismissible` | `bool` | `true` | Tap-outside to dismiss |
+
+---
+
 ### `DateTimeExt` — on `DateTime`
 
 ```dart
@@ -303,6 +369,17 @@ Override these before showing any toasts:
 defaultToastBackgroundColor = Colors.black87;
 defaultToastTextColor       = Colors.white;
 defaultToastGravityGlobal   = ToastGravity.BOTTOM;
+```
+
+### Global Dialog Config
+
+Override these once (e.g. in `main()`) to restyle all dialogs app-wide:
+
+```dart
+defaultDialogConfirmColorGlobal  = Colors.deepPurple;
+defaultDialogCancelColorGlobal   = Colors.grey.shade700;
+defaultDialogInfoColorGlobal     = Colors.green;
+defaultDialogBorderRadiusGlobal  = BorderRadius.circular(16);
 ```
 
 ---
