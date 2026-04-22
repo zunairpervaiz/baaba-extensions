@@ -1,3 +1,14 @@
+## 0.2.0
+
+### Added
+- `SwiperWidgetx` — a fully-featured carousel/swiper widget with both list and builder constructors:
+  - Supports infinite scroll, auto-play, custom intervals/curves, enlarge-center-page, and bi-directional scroll.
+  - Named constructors: `SwiperWidgetx(items: [...])` and `SwiperWidgetx.builder(itemCount:, itemBuilder:)`.
+  - Programmatic control via `nextPage`, `previousPage`, `jumpToPage`, and `animateToPage`.
+  - Configurable `viewportFraction`, `aspectRatio`, `height`, `scrollDirection`, fast-scrolling toggle, and `onPageChanged` callback.
+
+---
+
 ## 0.1.0
 
 ### Added

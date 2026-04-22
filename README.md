@@ -329,6 +329,147 @@ true.toggle   // → false
 
 ---
 
+## Widgets
+
+Ready-made Flutter widgets exported from the package.
+
+### `SwiperWidgetx`
+
+A fully-featured carousel/page-swiper widget.
+
+```dart
+// From a list
+SwiperWidgetx(
+  items: [
+    Image.asset('a.png'),
+    Image.asset('b.png'),
+  ],
+  autoPlay: true,
+  autoPlayInterval: const Duration(seconds: 4),
+  enlargeCenterPage: true,
+  onPageChanged: (i) => print('page $i'),
+);
+
+// From a builder (efficient for large/dynamic lists)
+SwiperWidgetx.builder(
+  itemCount: 20,
+  itemBuilder: (context, i) => Card(child: Text('$i')),
+  viewportFraction: 0.9,
+  scrollDirection: Axis.vertical,
+);
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `items` / `itemBuilder` | `List<Widget>` / `IndexedWidgetBuilder` | required | Content source |
+| `itemCount` | `int` | — | Required for `.builder` constructor |
+| `height` | `double?` | — | Fixed height; if null uses `aspectRatio` |
+| `aspectRatio` | `double` | `16/9` | Aspect ratio when height is null |
+| `viewportFraction` | `num` | `0.8` | Fraction of viewport each page occupies |
+| `enableInfiniteScroll` | `bool` | `true` | Loop pages infinitely |
+| `autoPlay` | `bool` | `false` | Auto-advance pages |
+| `autoPlayInterval` | `Duration` | `5s` | Interval between auto advances |
+| `autoPlayAnimationDuration` | `Duration` | `800ms` | Animation duration for auto-play |
+| `autoPlayCurve` | `Curve` | `fastOutSlowIn` | Animation curve for auto-play |
+| `enlargeCenterPage` | `bool?` | `false` | Scale the center page up |
+| `scrollDirection` | `Axis` | `horizontal` | Scroll axis |
+| `isFastScrollingEnabled` | `bool` | `false` | Allow flinging multiple pages |
+| `onPageChanged` | `Function(int)?` | — | Called on page change |
+| `reverse` | `bool` | `false` | Reverse scroll direction |
+
+**Programmatic control** — get a reference via a `GlobalKey<SwiperWidgetxState>`:
+
+```dart
+final key = GlobalKey<SwiperWidgetxState>();
+SwiperWidgetx(key: key, items: [...]);
+
+key.currentState?.nextPage(duration: 300.milliseconds, curve: Curves.ease);
+key.currentState?.previousPage(duration: 300.milliseconds, curve: Curves.ease);
+key.currentState?.jumpToPage(2);
+key.currentState?.animateToPage(2, duration: 300.milliseconds, curve: Curves.ease);
+```
+
+---
+
+### `HorizontalListWithoutHeight`
+
+A horizontally-scrolling `Wrap`-based list that sizes itself to its content — no fixed height required.
+
+```dart
+HorizontalListWithoutHeight(
+  itemCount: tags.length,
+  itemBuilder: (context, i) => Chip(label: Text(tags[i])),
+  spacing: 8,
+  runSpacing: 4,
+  paddings: const EdgeInsets.symmetric(horizontal: 16),
+);
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `itemCount` | `int` | required | Number of items |
+| `itemBuilder` | `IndexedWidgetBuilder` | required | Item builder |
+| `spacing` | `double?` | — | Horizontal gap between items |
+| `runSpacing` | `double?` | — | Vertical gap between runs |
+| `paddings` | `EdgeInsets?` | — | Outer padding |
+| `physics` | `ScrollPhysics?` | — | Scroll physics override |
+| `controller` | `ScrollController?` | — | External scroll controller |
+| `reverse` | `bool` | `false` | Reverse scroll direction |
+| `wrapAlignment` | `WrapAlignment?` | — | Main-axis alignment |
+| `crossAxisAlignment` | `WrapCrossAlignment?` | — | Cross-axis alignment |
+
+---
+
+### `ReadMoreWidgetx`
+
+A text widget that collapses long content with a "Show more" / "Show less" toggle.
+
+```dart
+ReadMoreWidgetx(
+  data: longText,
+  trimLines: 3,
+  trimMode: TrimMode.Line,
+  trimCollapsedText: 'Read more',
+  trimExpandedText: 'Read less',
+  colorClickableText: Colors.blue,
+  style: const TextStyle(fontSize: 14),
+);
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `data` | `String` | required | Text content |
+| `trimMode` | `TrimMode` | `TrimMode.Length` | Trim by character count or line count |
+| `trimLength` | `int` | `200` | Max characters (for `TrimMode.Length`) |
+| `trimLines` | `int` | `2` | Max lines (for `TrimMode.Line`) |
+| `trimCollapsedText` | `String` | `'Show more'` | Label when collapsed |
+| `trimExpandedText` | `String` | `'Show less'` | Label when expanded |
+| `colorClickableText` | `Color?` | — | Color of the toggle link |
+| `style` | `TextStyle?` | — | Text style |
+
+**`TrimMode` enum:**
+
+```dart
+TrimMode.Length  // trim by character count
+TrimMode.Line    // trim by line count
+```
+
+---
+
+### `RestartAppWidgetx`
+
+Wraps your app root to allow programmatic hot-restart from anywhere in the tree.
+
+```dart
+// In main.dart
+runApp(RestartAppWidgetx(child: MyApp()));
+
+// Anywhere in the tree
+RestartAppWidgetx.init(context); // restarts the app
+```
+
+---
+
 ## Utils
 
 ### `Patterns`
@@ -361,6 +502,15 @@ MaskType.email
 MaskType.phone
 ```
 
+### `TrimMode` enum
+
+Used by `ReadMoreWidgetx` to choose how text is trimmed.
+
+```dart
+TrimMode.Length  // trim after N characters (default)
+TrimMode.Line    // trim after N lines
+```
+
 ### Global Toast Config
 
 Override these before showing any toasts:
@@ -388,4 +538,4 @@ defaultDialogBorderRadiusGlobal  = BorderRadius.circular(16);
 
 - Dart SDK `^3.11.3`
 - Flutter `>=1.17.0`
-- [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^9.0.0`
+- [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^9.0.0` — used by `StringExtension.toastString()`
