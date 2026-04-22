@@ -15,4 +15,5 @@ export 'src/utils/time_formatter.dart';
 export 'src/widgets/horizontal_list_without_height.dart';
 export 'src/widgets/read_more_widgetx.dart';
 export 'src/widgets/restart_app_widgetx.dart';
+export 'src/widgets/swiper_widgetx.dart';
 export 'src/widgetx_extensions.dart';
