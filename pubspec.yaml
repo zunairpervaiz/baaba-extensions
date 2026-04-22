@@ -1,7 +1,6 @@
 name: baaba_extensions
-description: "A new Flutter package project."
+description: "Handy pack of extensions for the Flutter SDK."
 version: 0.0.1
-homepage:
 
 environment:
   sdk: ^3.11.3
