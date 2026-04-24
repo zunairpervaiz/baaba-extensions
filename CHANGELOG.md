@@ -1,3 +1,32 @@
+## 0.3.0
+
+### Added
+- `VxTextBuilder` — a fluent, chainable text-styling builder backed by `AutoSizeText`:
+  - **Font weights** — `.hairLine`, `.thin`, `.light`, `.normal`, `.medium`, `.semiBold`, `.bold`, `.extraBold`, `.extraBlack`.
+  - **Scale aliases** — `.xs` (0.75×), `.sm` (0.875×), `.base` (1×), `.lg` (1.125×), `.xl`–`.xl6` up to 4×; or exact size via `.size(n)`.
+  - **Alignment** — `.center`, `.start`, `.end`, `.justify`.
+  - **Text transforms** — `.uppercase`, `.lowercase`, `.capitalize`.
+  - **Overflow** — `.ellipsis`, `.fade`, `.visible`, or `.overflow(TextOverflow.*)`.
+  - **Text decoration** — `.underline`, `.lineThrough`, `.overline`.
+  - **Letter spacing** — `.tight`, `.tighter`, `.tightest`, `.wide`, `.wider`, `.widest`, or `.letterSpacing(n)`.
+  - **Line height** — `.heightTight`, `.heightSnug`, `.heightRelaxed`, `.heightLoose`, or `.lineHeight(n)`.
+  - **Shadow** — `.shadow(offsetX, offsetY, blur, color)`, `.shadowBlur()`, `.shadowColor()`, `.shadowOffset()`.
+  - **Color** — full Tailwind-style palette via shorthand getters (e.g. `.blue500`, `.red300`, `.emerald700`), plus `.white`, `.black`, `.transparent`.
+  - **TextTheme integration** — `.displayLarge(context)`, `.headlineMedium(context)`, `.bodySmall(context)`, etc. for all M3 text roles.
+  - **Conditional rendering** — `.when(bool)` — renders `SizedBox.shrink()` when false.
+  - **Auto-size controls** — `.minFontSize()`, `.maxFontSize()`, `.stepGranularity()`, `.overflowReplacement()`, `.wrapWords()`.
+  - **Intrinsic mode** — `.isIntrinsic` disables `AutoSizeText` for widgets incompatible with `LayoutBuilder` (e.g. `IntrinsicWidth`).
+  - `.make({Key? key})` — produces the final `Widget`.
+- `VxTextExtensions on Text` — `.text` getter converts an existing `Text` into a `VxTextBuilder` for further styling.
+- `NoneWidget` — internal `SizedBox.shrink()` sentinel; used by `VxTextBuilder.when(false)`.
+- `VxWidgetBuilders` / `VxWidgetContextBuilder` / `VxTextSpanBuilder` — internal abstract builder base classes.
+- `VxColorMixin` / `VxRenderMixin` — internal mixins consumed by `VxTextBuilder`.
+- `Vx` mixin — internal Tailwind-scale color constants, pixel-value constants, and `EdgeInsets` presets used by the builder system.
+- `StringExtension.capitalizeAllWords()` — capitalizes the first letter of every word in a string; used internally by `VxTextBuilder.capitalize`.
+- Added `flutter_auto_size_text: ^5.0.0` dependency.
+
+---
+
 ## 0.2.0
 
 ### Added

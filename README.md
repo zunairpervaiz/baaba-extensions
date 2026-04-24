@@ -75,6 +75,9 @@ name.isNotBlank;             // → false
 // Clipboard
 await 'copy me'.copyToClipboard();
 
+// Word capitalisation
+'hello world'.capitalizeAllWords(); // → 'Hello World'
+
 // Misc
 '1234567890'.formatNumberWithComma(); // → '1,234,567,890'
 '  hello  world  '.removeAllWhiteSpace(); // → 'helloworld'
@@ -333,6 +336,171 @@ true.toggle   // → false
 
 Ready-made Flutter widgets exported from the package.
 
+### `VxTextBuilder`
+
+A fluent, chainable text-styling builder backed by `AutoSizeText`. Chain as many modifiers as needed, then call `.make()` to produce a `Widget`.
+
+```dart
+// Basic usage
+VxTextBuilder('Hello World')
+  .bold
+  .center
+  .blue500
+  .xl2
+  .make();
+
+// Via extension on an existing Text widget
+Text('Hello').text
+  .semiBold
+  .ellipsis
+  .red600
+  .make();
+```
+
+**Font weights**
+
+```dart
+'text'.text.hairLine.make()  // w100
+'text'.text.thin.make()      // w200
+'text'.text.light.make()     // w300
+'text'.text.normal.make()    // w400
+'text'.text.medium.make()    // w500
+'text'.text.semiBold.make()  // w600
+'text'.text.bold.make()      // w700
+'text'.text.extraBold.make() // w800
+'text'.text.extraBlack.make()// w900
+```
+
+**Scale / size**
+
+```dart
+'text'.text.xs.make()    // 0.75×
+'text'.text.sm.make()    // 0.875×
+'text'.text.base.make()  // 1× (default)
+'text'.text.lg.make()    // 1.125×
+'text'.text.xl.make()    // 1.25×
+'text'.text.xl2.make()   // 1.5×
+'text'.text.xl3.make()   // 1.875×
+'text'.text.xl4.make()   // 2.25×
+'text'.text.xl5.make()   // 3×
+'text'.text.xl6.make()   // 4×
+VxTextBuilder('text').size(20).make() // exact px
+```
+
+**Alignment**
+
+```dart
+.center  .start  .end  .justify
+// or custom:
+.align(TextAlign.left)
+```
+
+**Text transforms**
+
+```dart
+.uppercase   // → 'HELLO WORLD'
+.lowercase   // → 'hello world'
+.capitalize  // → 'Hello World'
+```
+
+**Overflow**
+
+```dart
+.ellipsis  .fade  .visible
+// or: .overflow(TextOverflow.clip)
+```
+
+**Decoration**
+
+```dart
+.underline  .lineThrough  .overline
+```
+
+**Letter spacing**
+
+```dart
+.tightest  .tighter  .tight   // -3, -2, -1
+.wide      .wider     .widest  // 1, 2, 3
+// or custom: .letterSpacing(0.5)
+```
+
+**Line height**
+
+```dart
+.heightTight    // 0.75
+.heightSnug     // 0.875
+.heightRelaxed  // 1.25
+.heightLoose    // 1.5
+// or custom: .lineHeight(1.4)
+```
+
+**Shadow**
+
+```dart
+VxTextBuilder('text')
+  .shadow(2, 2, 4, Colors.black38)
+  .make();
+// individual:
+.shadowBlur(4).shadowColor(Colors.black38).shadowOffset(2, 2)
+```
+
+**Colors** — full Tailwind-scale palette:
+
+```dart
+.white  .black  .transparent
+.gray50 … .gray900
+.red50  … .red900
+.blue50 … .blue900
+// and: slate, zinc, neutral, stone, orange, amber, yellow, lime,
+//      green, emerald, teal, cyan, sky, indigo, violet, purple,
+//      fuchsia, pink, rose — each with 50–900 shades
+// or explicit: .color(Colors.deepOrange)
+```
+
+**TextTheme integration**
+
+```dart
+VxTextBuilder('Heading').displayLarge(context).make()
+VxTextBuilder('Body').bodyMedium(context).make()
+// all M3 roles: displayLarge/Medium/Small, headlineLarge/Medium/Small,
+//   titleLarge/Medium/Small, bodyLarge/Medium/Small, labelLarge/Medium/Small
+```
+
+**Auto-size controls**
+
+```dart
+VxTextBuilder('text')
+  .minFontSize(10)
+  .maxFontSize(30)
+  .stepGranularity(0.5)
+  .maxLines(2)
+  .overflowReplacement(Text('…'))
+  .make();
+```
+
+**Conditional rendering**
+
+```dart
+VxTextBuilder('Admin only').when(user.isAdmin).make();
+// renders SizedBox.shrink() when false
+```
+
+**Intrinsic mode** — disables `AutoSizeText` for widgets that don't work with `LayoutBuilder`:
+
+```dart
+VxTextBuilder('text').isIntrinsic.make();
+```
+
+**`VxTextExtensions` — on `Text`**
+
+Convert any `Text` widget into a `VxTextBuilder` for further styling:
+
+```dart
+Text('Hello').text.bold.blue600.xl.make()
+```
+
+---
+
 ### `SwiperWidgetx`
 
 A fully-featured carousel/page-swiper widget.
@@ -539,3 +707,4 @@ defaultDialogBorderRadiusGlobal  = BorderRadius.circular(16);
 - Dart SDK `^3.11.3`
 - Flutter `>=1.17.0`
 - [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^9.0.0` — used by `StringExtension.toastString()`
+- [`flutter_auto_size_text`](https://pub.dev/packages/flutter_auto_size_text) `^5.0.0` — used by `VxTextBuilder`

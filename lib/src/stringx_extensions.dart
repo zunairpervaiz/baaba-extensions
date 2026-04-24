@@ -299,6 +299,14 @@ extension StringExtension on String? {
     return capitalizedWords.join(' ');
   }
 
+  /// Capitalize all words in a string
+  String capitalizeAllWords() {
+    if (validate().isEmpty) {
+      return '';
+    }
+    return this!.split(' ').map((word) => word.capitalizeFirstLetter()).join(' ');
+  }
+
   /// Returns true if the validate() method returns 'true', otherwise returns false.
   bool toBool() => validate() == 'true';
 
