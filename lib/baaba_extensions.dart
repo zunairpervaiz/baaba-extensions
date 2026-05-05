@@ -4,7 +4,9 @@ export 'src/contextx_extensions.dart';
 export 'src/date_timex_extensions.dart';
 export 'src/dialogx_extensions.dart';
 export 'src/listx_extensions.dart';
+export 'src/listx_widgets_extensions.dart';
 export 'src/numx_extensions.dart';
+export 'src/scrollx_extensions.dart';
 export 'src/stringx_extensions.dart';
 export 'src/utils/default_configs.dart';
 // Utils

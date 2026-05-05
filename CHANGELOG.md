@@ -1,3 +1,21 @@
+## 0.4.0
+
+### Added
+- `ListxWidgetExtensions on List<Widget>` — convert a list of widgets directly into layout widgets:
+  - `.toRow(...)` — wraps children in a `Row` with full `Row` parameter support.
+  - `.toColumn(...)` — wraps children in a `Column` with full `Column` parameter support.
+  - `.toStack(...)` — wraps children in a `Stack` with alignment, fit, and clip options.
+  - `.toList(...)` — wraps children in a `ListView` (children mode) with all `ListView` parameters.
+  - `.toListView(itemBuilder:, ...)` — wraps children in a `ListView.builder` with a custom item builder.
+- `ScrollxExtensions on ScrollController` — fluent scroll utilities:
+  - `.animateToPosition(offset)` — smooth animated scroll to any offset.
+  - `.animateToBottom()` — animated scroll to the end of the scrollable.
+  - `.animateToTop()` — animated scroll to the beginning of the scrollable.
+  - `.isNearBottom({threshold})` — returns `true` when within `threshold` pixels of the bottom.
+  - `.canScroll` — `true` if the controller has clients and the content is actually scrollable.
+
+---
+
 ## 0.3.0
 
 ### Added

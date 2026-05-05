@@ -192,6 +192,64 @@ list.swap(0, 2); // → [3, 2, 1]
 
 ---
 
+### `ListxWidgetExtensions` — on `List<Widget>`
+
+Convert a plain list of widgets directly into a layout widget using method chaining.
+
+```dart
+[Text('A'), Text('B'), Text('C')].toRow();
+[Text('A'), Text('B'), Text('C')].toColumn(mainAxisAlignment: MainAxisAlignment.center);
+[Text('A'), Text('B'), Text('C')].toStack(alignment: Alignment.center);
+
+// ListView (children mode)
+[Text('A'), Text('B'), Text('C')].toList(shrinkWrap: true);
+
+// ListView.builder
+[Text('A'), Text('B'), Text('C')].toListView(
+  itemBuilder: (context, i) => ListTile(title: Text('Item $i')),
+  physics: const NeverScrollableScrollPhysics(),
+);
+```
+
+All methods accept the same named parameters as their Flutter counterparts (`mainAxisAlignment`, `crossAxisAlignment`, `scrollDirection`, `physics`, `padding`, etc.).
+
+---
+
+### `ScrollxExtensions` — on `ScrollController`
+
+Fluent helpers for common scroll operations.
+
+```dart
+final controller = ScrollController();
+
+// Animate to any offset
+await controller.animateToPosition(300);
+
+// Jump to edges
+await controller.animateToBottom();
+await controller.animateToTop();
+
+// Custom duration / curve
+await controller.animateToBottom(
+  duration: const Duration(milliseconds: 300),
+  curve: Curves.easeOut,
+);
+
+// Guards
+if (controller.isNearBottom(threshold: 80)) loadMoreItems();
+if (controller.canScroll) showScrollIndicator();
+```
+
+| Member | Returns | Description |
+|---|---|---|
+| `animateToPosition(offset)` | `Future<void>` | Animated scroll to a specific offset |
+| `animateToBottom()` | `Future<void>` | Animated scroll to `maxScrollExtent` |
+| `animateToTop()` | `Future<void>` | Animated scroll to `minScrollExtent` |
+| `isNearBottom({threshold})` | `bool` | `true` when within `threshold` (default 50) px of bottom |
+| `canScroll` | `bool` | `true` if controller has clients and content overflows |
+
+---
+
 ### `ContextX` — on `BuildContext`
 
 Access theme, media query, and screen info from any widget.
