@@ -522,8 +522,13 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
 }
 
 extension VxTextExtensions on Text {
-  ///
-  /// Extension method to directly access [VxTextBuilder] with any widget without wrapping or with dot operator.
-  ///
+  /// Converts this [Text] into a [VxTextBuilder] for further fluent styling.
   VxTextBuilder get text => VxTextBuilder.existing(data!, style);
+}
+
+extension VxStringTextExtensions on String {
+  /// Creates a [VxTextBuilder] from this string for fluent text styling.
+  ///
+  /// Example: `'Hello World'.text.bold.blue500.xl2.make()`
+  VxTextBuilder get text => VxTextBuilder(this);
 }

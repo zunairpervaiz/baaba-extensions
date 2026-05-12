@@ -518,6 +518,13 @@ VxTextBuilder('Hello World')
   .xl2
   .make();
 
+// Via extension on a String — the most concise form
+'Hello'.text
+  .bold
+  .blue500
+  .xl2
+  .make();
+
 // Via extension on an existing Text widget
 Text('Hello').text
   .semiBold
@@ -660,9 +667,17 @@ VxTextBuilder('Admin only').when(user.isAdmin).make();
 VxTextBuilder('text').isIntrinsic.make();
 ```
 
+**`VxStringTextExtensions` — on `String`**
+
+The quickest way to build styled text — call `.text` directly on any string literal:
+
+```dart
+'Hello World'.text.bold.blue600.xl.make()
+```
+
 **`VxTextExtensions` — on `Text`**
 
-Convert any `Text` widget into a `VxTextBuilder` for further styling:
+Convert any existing `Text` widget into a `VxTextBuilder` for further styling:
 
 ```dart
 Text('Hello').text.bold.blue600.xl.make()

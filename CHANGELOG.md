@@ -1,3 +1,10 @@
+## 0.5.1
+
+### Fixed
+- Added `VxStringTextExtensions on String` so that `'hello'.text.make()` now works directly on string literals. Previously `.text` was only available on `Text` widgets.
+
+---
+
 ## 0.5.0
 
 ### Added — Extensions
