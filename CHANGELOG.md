@@ -1,3 +1,124 @@
+## 0.5.0
+
+### Added — Extensions
+
+#### `WidgetX on Widget` (new members)
+- `.padding(EdgeInsets)` / `.paddingAll(double)` / `.paddingSymmetric(h, v)` / `.paddingOnly(...)` — padding wrappers.
+- `.opacity(double)` — `Opacity` wrapper; value clamped to 0.0–1.0.
+- `.rotate(double)` — `Transform.rotate` wrapper (angle in radians).
+- `.scale(double)` — `Transform.scale` wrapper.
+- `.translate({dx, dy})` — `Transform.translate` wrapper.
+- `.flexible({flex, fit})` — `Flexible` wrapper.
+- `.card({elevation, color, shadowColor, borderRadius, margin})` — `Card` wrapper.
+- `.tooltip(String)` — `Tooltip` wrapper.
+- `.hero(Object tag)` — `Hero` wrapper.
+- `.safeArea({top, bottom, left, right})` — `SafeArea` wrapper.
+- `.sliverBox` — `SliverToBoxAdapter` getter.
+
+#### `ContextX on BuildContext` (new members)
+- `.isDark` / `.isLight` — theme brightness checks.
+- `.orientation` / `.isPortrait` / `.isLandscape` — device orientation.
+- `.topPadding` / `.bottomPadding` / `.viewPadding` / `.viewInsets` — safe-area insets.
+- `.pixelRatio` / `.locale` — device and locale info.
+- `.navigator` — nearest `NavigatorState`.
+- `.push(page)` / `.pop()` / `.pushNamed(route)` / `.pushReplacement(page)` / `.pushAndRemoveAll(page)` — navigation helpers.
+- `.showSnackBar(SnackBar)` — `ScaffoldMessenger` shortcut.
+- `.showModalSheet({builder, ...})` — modal bottom sheet shortcut.
+
+#### `DateTimeExt on DateTime` (new members)
+- `.isWeekend` / `.isWeekday` — day-of-week checks.
+- `.startOfWeek` / `.endOfWeek` — week boundary `DateTime`s.
+- `.startOfMonth` / `.endOfMonth` — month boundary `DateTime`s.
+- `.startOfYear` / `.endOfYear` — year boundary `DateTime`s.
+- `.isSameMonth(other)` / `.isSameYear(other)` — calendar comparisons.
+- `.quarterOf` — returns 1–4.
+- `.age` — full years elapsed from this date to today.
+- `.addDays(n)` / `.subtractDays(n)` / `.addHours(n)` / `.subtractHours(n)` / `.addMinutes(n)` / `.subtractMinutes(n)` — convenience arithmetic.
+
+#### `NumTimeX on int` (new members)
+- `.minutesAgo` / `.secondsAgo` — past relative `DateTime`s.
+- `.daysFromNow` / `.hoursFromNow` / `.minutesFromNow` / `.secondsFromNow` — future relative `DateTime`s.
+
+#### `NumX on num` (new members)
+- `.isBetween(min, max)` — inclusive range check.
+- `.roundTo(int decimals)` — rounds to N decimal places and returns `double`.
+
+#### `NumPaddingX on num` (improved)
+- `.ordinal` — fixed 11th/12th/13th (teen) edge cases.
+
+#### `ListX on Iterable<T>?` (new members)
+- `.distinct()` — deduplicates preserving order.
+- `.sortedBy(keySelector)` — returns a sorted copy.
+- `.mapIndexed(transform)` — maps with index.
+- `.countWhere(predicate)` — counts matching elements.
+- `.maxBy(keySelector)` / `.minBy(keySelector)` — find extremes by property.
+- `.none(predicate)` — true when no element satisfies the predicate.
+
+#### `IterableIterableX on Iterable<Iterable<T>>` (new extension)
+- `.flatten()` — flattens nested iterables into a single `List`.
+
+#### `ScrollxExtensions on ScrollController` (new members)
+- `.jumpToBottom()` / `.jumpToTop()` — instant non-animated scroll.
+- `.isAtTop` / `.isAtBottom` — exact edge checks.
+- `.isNearTop({threshold})` — counterpart to `isNearBottom`.
+- `.scrollPercentage` — 0.0–1.0 progress through the scrollable.
+
+#### `StringExtension on String?` (new members)
+- `.stripHtml()` — removes all HTML tags.
+- `.containsAny(List<String>)` — true if any needle is present.
+- `.containsAll(List<String>)` — true if all needles are present.
+- `.wrapAt(int lineLength)` — soft-wraps at word boundaries.
+
+#### `Patterns` (new constants)
+- `cnic` — Pakistani CNIC format `00000-0000000-0`.
+- `ntn` — Pakistani NTN format `0000000-0`.
+- `ipv4` — IPv4 address.
+- `creditCard` — Visa / Mastercard / Amex / Discover / JCB.
+- `hexColor` — `#fff` or `#ffffff`.
+
+### Added — New Extensions
+
+#### `ColorX on Color`
+- `.lighten([amount])` / `.darken([amount])` — HSL-based lightness adjustment.
+- `.toHex({leadingHash, includeAlpha})` — hex string, e.g. `'#2196F3'`.
+- `.isLight` / `.isDark` — luminance-based brightness check.
+- `.complementary` — color with hue shifted 180°.
+- `.mix(Color, {weight})` — blend two colors by weight.
+- `.withSaturationLevel(double)` / `.withLightnessLevel(double)` — HSL component overrides.
+
+#### `MapX on Map<K, V>`
+- `.getOrDefault(key, defaultValue)` — safe key lookup.
+- `.mapValues(transform)` — transform all values.
+- `.filterKeys(predicate)` / `.filterValues(predicate)` — filter by key or value.
+- `.toListX(transform)` — convert entries to a list.
+- `.mergeWith(other, {resolve})` — merge two maps with optional conflict resolver.
+- `.inverse` — swap keys and values.
+
+#### `DurationX on Duration`
+- `.format()` — compact human-readable string, e.g. `'2h 30m'`, `'45s'`.
+- `.fromNow` — `DateTime` this duration from now.
+- `.ago` — `DateTime` this duration before now.
+- `.delay(VoidCallback)` — `Future.delayed` shortcut.
+- `.isZero` — true when `inMicroseconds == 0`.
+- `* double` operator — scaled `Duration`.
+
+### Added — New Widgets
+
+| Widget | Description |
+|---|---|
+| `SkeletonLoaderWidgetx` | Shimmer loading placeholder with customizable size, radius, and colors |
+| `EmptyStateWidgetx` | Icon + title + subtitle + optional action button, auto-centered |
+| `AvatarWidgetx` | Circular avatar with network image, initials fallback, badge count, online indicator |
+| `PinInputWidgetx` | PIN / OTP input as a row of individual boxes with auto-focus and backspace navigation |
+| `ExpandableWidgetx` | Animated expand / collapse container with chevron icon |
+| `GradientButtonWidgetx` | Ink-ripple button with a `LinearGradient` fill |
+| `SearchBarWidgetx` | Styled search field with clear button and configurable debounce |
+| `StepperIndicatorWidgetx` | Horizontal step indicator with completed / active / inactive states and optional labels |
+| `RatingWidgetx` | Star rating input and display with optional half-star support |
+| `CountdownTimerWidgetx` | Auto-ticking countdown with `start()`, `pause()`, `reset()` control and `onFinished` callback |
+
+---
+
 ## 0.4.0
 
 ### Added

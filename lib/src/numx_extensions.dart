@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
 
 extension NumX on num {
-  /// Converts the number to a double and returns it as a [SizedBox] with the specified height.
+  /// Returns a [SizedBox] with this value as height.
   Widget get heightBox => SizedBox(height: toDouble());
 
-  /// Converts the number to a double and returns it as a [SizedBox] with the specified width.
+  /// Returns a [SizedBox] with this value as width.
   Widget get widthBox => SizedBox(width: toDouble());
 
-  /// Delays the execution of the provided [action] by the number of milliseconds represented by this [num].
-  Future<void> delay(VoidCallback action) => Future.delayed(Duration(milliseconds: toInt()), action);
+  /// Runs [action] after this many milliseconds.
+  Future<void> delay(VoidCallback action) =>
+      Future.delayed(Duration(milliseconds: toInt()), action);
+
+  /// Returns true when this value is between [min] and [max] (inclusive).
+  bool isBetween(num min, num max) => this >= min && this <= max;
+
+  /// Returns this value rounded to [decimals] decimal places as a [double].
+  ///
+  /// Example: `3.14159.roundTo(2)` → `3.14`
+  double roundTo(int decimals) =>
+      double.parse(toDouble().toStringAsFixed(decimals));
 }
 
 extension NumCoerceInExtension<T extends num> on T {
-  /// Coerces this number within the specified [minimumValue] and optional [maximumValue].
-  /// If this number is less than [minimumValue], it returns [minimumValue].
-  /// If this number is greater than [maximumValue] (if provided), it returns [maximumValue].
-  /// Otherwise, it returns this number.
+  /// Clamps this value between [minimumValue] and [maximumValue].
   T coerceIn(T minimumValue, [T? maximumValue]) {
     if (maximumValue != null && minimumValue > maximumValue) {
       throw ArgumentError('Minimum value cannot be greater than maximum value');
@@ -27,70 +34,87 @@ extension NumCoerceInExtension<T extends num> on T {
 }
 
 extension NumDurationX on int {
-  /// Converts this integer to a [Duration] in milliseconds.
-  /// Example: `500.milliseconds` returns a Duration of 500 milliseconds.
+  /// Returns a [Duration] of this many milliseconds.
   Duration get milliseconds => Duration(milliseconds: this);
 
-  /// Converts this integer to a [Duration] in seconds.
-  /// Example: `5.seconds` returns a Duration of 5 seconds.
+  /// Returns a [Duration] of this many seconds.
   Duration get seconds => Duration(seconds: this);
 
-  /// Converts this integer to a [Duration] in minutes.
-  /// Example: `2.minutes` returns a Duration of 2 minutes.
+  /// Returns a [Duration] of this many minutes.
   Duration get minutes => Duration(minutes: this);
 
-  /// Converts this integer to a [Duration] in hours.
-  /// Example: `1.hours` returns a Duration of 1 hour.
+  /// Returns a [Duration] of this many hours.
   Duration get hours => Duration(hours: this);
 
-  /// Converts this integer to a [Duration] in days.
-  /// Example: `3.days` returns a Duration of 3 days.
+  /// Returns a [Duration] of this many days.
   Duration get days => Duration(days: this);
 }
 
 extension NumTimeX on int {
-  /// Returns a [DateTime] representing the date and time that is this number of days ago from now.
-  /// Example: `7.daysAgo` returns a DateTime representing the date and time 7 days ago from now.
+  /// Returns a [DateTime] this many days before now.
   DateTime get daysAgo => DateTime.now().subtract(Duration(days: this));
 
-  /// Returns a [DateTime] representing the date and time that is this number of hours ago from now.
-  /// Example: `2.hoursAgo` returns a DateTime representing the date and time 2 hours ago from now.
+  /// Returns a [DateTime] this many hours before now.
   DateTime get hoursAgo => DateTime.now().subtract(Duration(hours: this));
+
+  /// Returns a [DateTime] this many minutes before now.
+  DateTime get minutesAgo => DateTime.now().subtract(Duration(minutes: this));
+
+  /// Returns a [DateTime] this many seconds before now.
+  DateTime get secondsAgo => DateTime.now().subtract(Duration(seconds: this));
+
+  /// Returns a [DateTime] this many days from now.
+  DateTime get daysFromNow => DateTime.now().add(Duration(days: this));
+
+  /// Returns a [DateTime] this many hours from now.
+  DateTime get hoursFromNow => DateTime.now().add(Duration(hours: this));
+
+  /// Returns a [DateTime] this many minutes from now.
+  DateTime get minutesFromNow => DateTime.now().add(Duration(minutes: this));
+
+  /// Returns a [DateTime] this many seconds from now.
+  DateTime get secondsFromNow => DateTime.now().add(Duration(seconds: this));
 }
 
 extension NumPaddingX on num {
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified padding on all sides.
+  /// Returns [EdgeInsets.all] with this value.
   EdgeInsets get allPadding => EdgeInsets.all(toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified vertical padding.
+  /// Returns [EdgeInsets.symmetric] with this value as vertical inset.
   EdgeInsets get verticalPadding => EdgeInsets.symmetric(vertical: toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified horizontal padding.
-  EdgeInsets get horizontalPadding => EdgeInsets.symmetric(horizontal: toDouble());
+  /// Returns [EdgeInsets.symmetric] with this value as horizontal inset.
+  EdgeInsets get horizontalPadding =>
+      EdgeInsets.symmetric(horizontal: toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified left padding.
+  /// Returns [EdgeInsets.only] with this value on the left.
   EdgeInsets get leftPadding => EdgeInsets.only(left: toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified top padding.
+  /// Returns [EdgeInsets.only] with this value on the top.
   EdgeInsets get topPadding => EdgeInsets.only(top: toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified right padding.
+  /// Returns [EdgeInsets.only] with this value on the right.
   EdgeInsets get rightPadding => EdgeInsets.only(right: toDouble());
 
-  /// Converts this number to a double and returns it as an [EdgeInsets] with the specified bottom padding.
+  /// Returns [EdgeInsets.only] with this value on the bottom.
   EdgeInsets get bottomPadding => EdgeInsets.only(bottom: toDouble());
 
-  /// Returns a string representing the ordinal suffix for the number.
-  String get ordinal =>
-      toInt().toString() +
-      (toInt() == 1
-          ? 'st'
-          : toInt() == 2
-          ? 'nd'
-          : toInt() == 3
-          ? 'rd'
-          : 'th');
+  /// Returns the ordinal string for this integer, e.g. `1` → `'1st'`.
+  String get ordinal {
+    final n = toInt();
+    if (n % 100 >= 11 && n % 100 <= 13) return '${n}th';
+    switch (n % 10) {
+      case 1:
+        return '${n}st';
+      case 2:
+        return '${n}nd';
+      case 3:
+        return '${n}rd';
+      default:
+        return '${n}th';
+    }
+  }
 
-  /// percentage
+  /// Returns this value divided by 100 (i.e. the fraction representation).
   double get percentage => this / 100;
 }

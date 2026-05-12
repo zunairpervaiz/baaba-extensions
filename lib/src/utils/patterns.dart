@@ -49,4 +49,26 @@ class Patterns {
 
   /// HTML regex
   static String html = r'.html$';
+
+  /// Pakistani CNIC — format: 00000-0000000-0
+  static const String cnic = r'^\d{5}-\d{7}-\d{1}$';
+
+  /// Pakistani NTN (National Tax Number) — format: 0000000-0
+  static const String ntn = r'^\d{7}-\d{1}$';
+
+  /// IPv4 address
+  static const String ipv4 =
+      r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$';
+
+  /// Common credit/debit card number (Visa, Mastercard, Amex, Discover, JCB)
+  static const String creditCard =
+      r'^(?:4[0-9]{12}(?:[0-9]{3})?'
+      r'|5[1-5][0-9]{14}'
+      r'|3[47][0-9]{13}'
+      r'|3(?:0[0-5]|[68][0-9])[0-9]{11}'
+      r'|6(?:011|5[0-9]{2})[0-9]{12}'
+      r'|(?:2131|1800|35\d{3})\d{11})$';
+
+  /// Hex color code — #fff or #ffffff
+  static const String hexColor = r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$';
 }

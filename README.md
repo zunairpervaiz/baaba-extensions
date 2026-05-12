@@ -94,6 +94,12 @@ await 'copy me'.copyToClipboard();
 
 // Toast
 'Saved successfully!'.toastString(); // shows a toast
+
+// New in 0.5.0
+'<b>Hello</b> world'.stripHtml();                     // → 'Hello world'
+'hello world'.containsAny(['hi', 'hello']);           // → true
+'hello world'.containsAll(['hello', 'world']);        // → true
+'hello world foo bar'.wrapAt(10);                     // wraps at word boundary
 ```
 
 ---
@@ -122,6 +128,10 @@ Quick spacing and layout helpers.
 
 // Async delay
 500.delay(() => print('done')); // runs after 500ms
+
+// Range & rounding
+5.isBetween(1, 10)   // → true
+3.14159.roundTo(2)   // → 3.14
 ```
 
 ### `NumDurationX` / `NumTimeX` — on `int`
@@ -135,8 +145,15 @@ Readable duration and relative time construction.
 1.hours           // Duration(hours: 1)
 3.days            // Duration(days: 3)
 
-7.daysAgo         // DateTime 7 days before now
-2.hoursAgo        // DateTime 2 hours before now
+7.daysAgo          // DateTime 7 days before now
+2.hoursAgo         // DateTime 2 hours before now
+30.minutesAgo
+10.secondsAgo
+
+3.daysFromNow
+6.hoursFromNow
+15.minutesFromNow
+30.secondsFromNow
 ```
 
 ### `NumCoerceInExtension` — on `T extends num`
@@ -168,6 +185,22 @@ users.groupBy((u) => u.role); // Map<Role, List<User>>
 
 // Safe firstWhere
 [1, 2, 3].firstWhereOrNull((n) => n > 5); // → null (no exception)
+
+// Dedup & sort
+[1, 2, 2, 3].distinct();                         // → [1, 2, 3]
+users.sortedBy((u) => u.name);                   // sorted copy
+
+// Indexed map
+items.mapIndexed((i, e) => '$i: $e');
+
+// Aggregates
+items.countWhere((e) => e.isActive);
+users.maxBy((u) => u.age);
+users.minBy((u) => u.age);
+items.none((e) => e.isDeleted);                  // true if all are not deleted
+
+// Flatten nested iterables
+[[1, 2], [3, 4]].flatten(); // → [1, 2, 3, 4]
 ```
 
 ### `ListSplit` — on `List<T>`
@@ -247,6 +280,12 @@ if (controller.canScroll) showScrollIndicator();
 | `animateToTop()` | `Future<void>` | Animated scroll to `minScrollExtent` |
 | `isNearBottom({threshold})` | `bool` | `true` when within `threshold` (default 50) px of bottom |
 | `canScroll` | `bool` | `true` if controller has clients and content overflows |
+| `jumpToBottom()` | `void` | Instant (non-animated) scroll to bottom |
+| `jumpToTop()` | `void` | Instant (non-animated) scroll to top |
+| `isAtTop` | `bool` | `true` when exactly at the top |
+| `isAtBottom` | `bool` | `true` when exactly at the bottom |
+| `isNearTop({threshold})` | `bool` | `true` within `threshold` px of top |
+| `scrollPercentage` | `double` | 0.0–1.0 scroll progress |
 
 ---
 
@@ -266,6 +305,34 @@ context.isTablet         // true if 600 ≤ width < 1024
 context.isDesktop        // true if width ≥ 1024
 context.hideKeyboard()   // unfocus / dismiss keyboard
 context.isKeyboardVisible// true if keyboard is open
+
+// Theme brightness
+context.isDark           // true if dark theme is active
+context.isLight
+
+// Orientation
+context.orientation      // Orientation.portrait / .landscape
+context.isPortrait
+context.isLandscape
+
+// Safe-area & device
+context.topPadding       // status bar height
+context.bottomPadding    // home indicator height
+context.viewPadding      // MediaQueryData.viewPadding
+context.viewInsets       // keyboard insets
+context.pixelRatio
+context.locale
+
+// Navigation
+context.push(const HomePage())
+context.pop()
+context.pushNamed('/home', arguments: {'id': 1})
+context.pushReplacement(const LoginPage())
+context.pushAndRemoveAll(const DashboardPage())
+
+// Scaffold
+context.showSnackBar(const SnackBar(content: Text('Saved')))
+context.showModalSheet(builder: (ctx) => const MySheet())
 ```
 
 ---
@@ -348,6 +415,30 @@ DateTime.now().isPast
 DateTime.now().startOfDay // → DateTime(year, month, day, 0, 0, 0)
 DateTime.now().endOfDay   // → DateTime(year, month, day, 23, 59, 59, 999)
 date1.isSameDay(date2)    // → true / false
+
+// Day-of-week
+date.isWeekend            // Sat or Sun
+date.isWeekday
+
+// Period boundaries
+date.startOfWeek          // Monday 00:00:00
+date.endOfWeek            // Sunday 23:59:59.999
+date.startOfMonth
+date.endOfMonth
+date.startOfYear
+date.endOfYear
+
+// Comparisons
+date.isSameMonth(other)
+date.isSameYear(other)
+date.quarterOf            // → 1, 2, 3, or 4
+
+// Age & arithmetic
+birthDate.age             // full years from birth date to today
+date.addDays(7)
+date.subtractDays(3)
+date.addHours(2)
+date.subtractMinutes(30)
 ```
 
 **Top-level helpers:**
@@ -376,6 +467,26 @@ Text('Hello').visible(isLoggedIn)
 Text('Hello').cornerRadiusWithClipRRect(12.0)
 Text('Hello').cornerRadiusWithClipRRectOnly(topLeft: 12, topRight: 12)
 Text('Hello').onTap(() => doSomething())
+
+// Padding
+Text('Hello').paddingAll(16)
+Text('Hello').paddingSymmetric(horizontal: 16, vertical: 8)
+Text('Hello').paddingOnly(left: 8, top: 4)
+Text('Hello').padding(const EdgeInsets.all(12))
+
+// Transforms & opacity
+Text('Hello').opacity(0.5)
+Text('Hello').rotate(0.3)          // radians
+Text('Hello').scale(1.2)
+Text('Hello').translate(dx: 10, dy: 0)
+
+// Layout helpers
+Text('Hello').flexible(flex: 2)
+Text('Hello').card(elevation: 4, borderRadius: 12)
+Text('Hello').tooltip('Tap to edit')
+Text('Hello').hero('profile-avatar')
+Text('Hello').safeArea()
+Text('Hello').sliverBox             // SliverToBoxAdapter
 ```
 
 ---
@@ -696,6 +807,270 @@ RestartAppWidgetx.init(context); // restarts the app
 
 ---
 
+### `SkeletonLoaderWidgetx`
+
+A shimmer loading placeholder that adapts its colors to light/dark theme.
+
+```dart
+SkeletonLoaderWidgetx(width: 200, height: 16)  // text line
+SkeletonLoaderWidgetx(
+  width: 48, height: 48,
+  borderRadius: BorderRadius.circular(24),      // circle
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `width` | `double` | required | Width of the placeholder |
+| `height` | `double` | required | Height of the placeholder |
+| `borderRadius` | `BorderRadius` | `circular(8)` | Corner radius |
+| `baseColor` | `Color?` | grey.300 / grey.700 | Base shimmer color |
+| `highlightColor` | `Color?` | grey.100 / grey.600 | Highlight shimmer color |
+
+---
+
+### `EmptyStateWidgetx`
+
+Centered empty state with icon, title, optional subtitle, and action button.
+
+```dart
+EmptyStateWidgetx(
+  icon: Icons.search_off_rounded,
+  title: 'No Results',
+  subtitle: 'Try a different search term.',
+  actionText: 'Clear Search',
+  onAction: () => searchController.clear(),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `title` | `String` | required | Main title |
+| `icon` | `IconData` | `Icons.inbox_outlined` | Icon shown above title |
+| `subtitle` | `String?` | — | Optional description |
+| `actionText` | `String?` | — | Label for the action button |
+| `onAction` | `VoidCallback?` | — | Action button callback |
+| `iconSize` | `double` | `64` | Icon size |
+| `padding` | `EdgeInsets` | `all(32)` | Outer padding |
+
+---
+
+### `AvatarWidgetx`
+
+Circular avatar with network image, initials fallback, online indicator, and badge.
+
+```dart
+AvatarWidgetx(
+  name: 'John Doe',
+  imageUrl: user.photoUrl,
+  radius: 28,
+  showOnlineIndicator: true,
+  badgeCount: 3,
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `imageUrl` | `String?` | — | Network image URL |
+| `name` | `String?` | — | Used to generate initials when no image |
+| `radius` | `double` | `24` | Avatar radius |
+| `showOnlineIndicator` | `bool` | `false` | Green dot at bottom-right |
+| `onlineColor` | `Color` | green | Colour of the online dot |
+| `badgeCount` | `int?` | — | Number shown in top-right badge |
+| `badgeColor` | `Color?` | error | Badge background color |
+
+---
+
+### `PinInputWidgetx`
+
+A PIN / OTP input as a row of individual boxes with automatic focus movement.
+
+```dart
+PinInputWidgetx(
+  length: 6,
+  obscureText: true,
+  onCompleted: (pin) => verifyOtp(pin),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `length` | `int` | `4` | Number of PIN boxes |
+| `onCompleted` | `Function(String)?` | — | Fires when all boxes are filled |
+| `onChanged` | `Function(String)?` | — | Fires on every keystroke |
+| `obscureText` | `bool` | `false` | Hides characters with `obscuringCharacter` |
+| `boxSize` | `double` | `48` | Width and height of each box |
+| `boxSpacing` | `double` | `8` | Gap between boxes |
+| `borderRadius` | `double` | `8` | Box corner radius |
+
+---
+
+### `ExpandableWidgetx`
+
+Animated expand / collapse container with a chevron indicator.
+
+```dart
+ExpandableWidgetx(
+  header: const Text('Section title', style: TextStyle(fontWeight: FontWeight.bold)),
+  body: const Text('Hidden content revealed on tap.'),
+  initiallyExpanded: true,
+  headerPadding: const EdgeInsets.all(12),
+  bodyPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `header` | `Widget` | required | Always-visible header row |
+| `body` | `Widget` | required | Content shown when expanded |
+| `initiallyExpanded` | `bool` | `false` | Start expanded |
+| `animationDuration` | `Duration` | `300ms` | Expand / collapse speed |
+| `onToggle` | `Function(bool)?` | — | Called with new expanded state |
+
+---
+
+### `GradientButtonWidgetx`
+
+An ink-ripple button with a `LinearGradient` fill.
+
+```dart
+GradientButtonWidgetx(
+  text: 'Get Started',
+  gradientColors: [Colors.purple, Colors.indigo],
+  onPressed: () => navigateToHome(),
+  leading: const Icon(Icons.arrow_forward, color: Colors.white),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `text` | `String` | required | Button label |
+| `onPressed` | `VoidCallback?` | — | Tap handler; `null` disables the button |
+| `gradientColors` | `List<Color>` | purple → blue | Gradient stops |
+| `height` | `double` | `52` | Button height |
+| `width` | `double?` | — | Fixed width; null = shrink-wrap |
+| `borderRadius` | `double` | `12` | Corner radius |
+| `leading` / `trailing` | `Widget?` | — | Optional icon slots |
+
+---
+
+### `SearchBarWidgetx`
+
+Styled search field with a clear button and built-in debounce.
+
+```dart
+SearchBarWidgetx(
+  hintText: 'Search users…',
+  debounceDuration: const Duration(milliseconds: 400),
+  onSearch: (q) => bloc.search(q),
+  onClear: () => bloc.reset(),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `onSearch` | `Function(String)?` | — | Fires after debounce period |
+| `onChanged` | `Function(String)?` | — | Fires on every keystroke |
+| `onClear` | `VoidCallback?` | — | Fires when the × button is tapped |
+| `hintText` | `String` | `'Search...'` | Placeholder text |
+| `debounceDuration` | `Duration` | `500ms` | Debounce delay |
+| `borderRadius` | `double` | `12` | Input corner radius |
+
+---
+
+### `StepperIndicatorWidgetx`
+
+Horizontal step progress indicator with optional step labels.
+
+```dart
+StepperIndicatorWidgetx(
+  totalSteps: 4,
+  currentStep: 2,
+  labels: const ['Info', 'Address', 'Payment', 'Done'],
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `totalSteps` | `int` | required | Total number of steps |
+| `currentStep` | `int` | required | 1-based active step index |
+| `activeColor` | `Color?` | primary | Active and completed step color |
+| `inactiveColor` | `Color?` | outlineVariant | Inactive step color |
+| `stepSize` | `double` | `32` | Diameter of each circle |
+| `connectorHeight` | `double` | `3` | Height of connecting line |
+| `labels` | `List<String>?` | — | Optional labels below each step |
+
+---
+
+### `RatingWidgetx`
+
+Star rating widget for input and read-only display with optional half-star support.
+
+```dart
+RatingWidgetx(
+  initialRating: 3.5,
+  allowHalfRating: true,
+  starCount: 5,
+  onRatingChanged: (r) => setState(() => rating = r),
+)
+
+// Read-only display
+RatingWidgetx(initialRating: product.rating, readOnly: true)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `initialRating` | `double` | `0` | Starting rating value |
+| `starCount` | `int` | `5` | Number of stars |
+| `size` | `double` | `28` | Star icon size |
+| `allowHalfRating` | `bool` | `false` | Enable half-star taps |
+| `readOnly` | `bool` | `false` | Disables tap interaction |
+| `filledColor` | `Color` | amber | Filled star color |
+| `onRatingChanged` | `Function(double)?` | — | Called on tap |
+
+---
+
+### `CountdownTimerWidgetx`
+
+Auto-ticking countdown timer with programmatic start/pause/reset control.
+
+```dart
+final key = GlobalKey<CountdownTimerWidgetxState>();
+
+CountdownTimerWidgetx(
+  key: key,
+  duration: const Duration(minutes: 5),
+  textStyle: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+  onFinished: () => showTimeUpDialog(context),
+)
+
+// Programmatic control
+key.currentState?.pause();
+key.currentState?.reset();
+key.currentState?.start();
+```
+
+Use the `builder` parameter for a fully custom display:
+
+```dart
+CountdownTimerWidgetx(
+  duration: const Duration(seconds: 30),
+  builder: (context, remaining, isFinished) => isFinished
+      ? const Text('Time up!')
+      : Text('${remaining.inSeconds}s remaining'),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `duration` | `Duration` | required | Starting countdown duration |
+| `onFinished` | `VoidCallback?` | — | Fires when countdown reaches zero |
+| `onTick` | `Function(Duration)?` | — | Fires every second with remaining time |
+| `builder` | `Widget Function(ctx, remaining, isFinished)?` | — | Custom display builder |
+| `autoStart` | `bool` | `true` | Start ticking immediately |
+
+---
+
 ## Utils
 
 ### `Patterns`
@@ -718,6 +1093,11 @@ Patterns.ppt
 Patterns.apk
 Patterns.txt
 Patterns.html
+Patterns.cnic        // Pakistani CNIC: 00000-0000000-0
+Patterns.ntn         // Pakistani NTN: 0000000-0
+Patterns.ipv4
+Patterns.creditCard  // Visa, Mastercard, Amex, Discover, JCB
+Patterns.hexColor    // #fff or #ffffff
 ```
 
 ### `MaskType` enum
@@ -736,6 +1116,53 @@ Used by `ReadMoreWidgetx` to choose how text is trimmed.
 TrimMode.Length  // trim after N characters (default)
 TrimMode.Line    // trim after N lines
 ```
+
+### `ColorX` — on `Color`
+
+HSL-based color utilities.
+
+```dart
+Colors.blue.lighten(0.2)               // lighter
+Colors.blue.darken(0.2)                // darker
+Colors.blue.toHex()                    // → '#2196F3'
+Colors.blue.toHex(includeAlpha: true)  // → '#FF2196F3'
+Colors.blue.isLight                    // false
+Colors.blue.isDark                     // true
+Colors.blue.complementary              // hue + 180°
+Colors.red.mix(Colors.blue, weight: 0.5)
+Colors.blue.withSaturationLevel(0.3)
+Colors.blue.withLightnessLevel(0.8)
+```
+
+---
+
+### `MapX` — on `Map<K, V>`
+
+```dart
+map.getOrDefault('key', 'fallback')
+{'a': 1, 'b': 2}.mapValues((v) => v * 2)   // → {'a': 2, 'b': 4}
+map.filterKeys((k) => k.startsWith('x'))
+map.filterValues((v) => v > 0)
+map.toListX((k, v) => '$k=$v')             // → ['a=1', 'b=2']
+map.mergeWith(other, resolve: (a, b) => a) // existing wins on conflict
+map.inverse                                // swap keys ↔ values
+```
+
+---
+
+### `DurationX` — on `Duration`
+
+```dart
+const Duration(hours: 2, minutes: 30).format()  // → '2h 30m'
+const Duration(seconds: 45).format()            // → '45s'
+const Duration(days: 1).fromNow                 // DateTime tomorrow
+const Duration(hours: 3).ago                    // DateTime 3 hours ago
+const Duration(milliseconds: 500).delay(() => reload())
+const Duration(seconds: 10).isZero             // false
+const Duration(seconds: 10) * 2.5              // Duration(seconds: 25)
+```
+
+---
 
 ### Global Toast Config
 

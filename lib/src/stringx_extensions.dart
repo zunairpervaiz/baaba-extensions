@@ -480,4 +480,43 @@ extension StringExtension on String? {
 
   /// Returns true if this String is not null and contains at least one non-whitespace character.
   bool get isNotBlank => this != null && this!.trim().isNotEmpty;
+
+  /// Removes all HTML tags from this string.
+  ///
+  /// Example: `'<b>Hello</b> <i>world</i>'.stripHtml()` → `'Hello world'`
+  String stripHtml() => validate().replaceAll(RegExp(r'<[^>]*>'), '');
+
+  /// Returns true when this string contains any of the given [needles].
+  ///
+  /// Example: `'hello'.containsAny(['hi', 'hello'])` → `true`
+  bool containsAny(List<String> needles) =>
+      needles.any((needle) => validate().contains(needle));
+
+  /// Returns true when this string contains all of the given [needles].
+  ///
+  /// Example: `'hello world'.containsAll(['hello', 'world'])` → `true`
+  bool containsAll(List<String> needles) =>
+      needles.every((needle) => validate().contains(needle));
+
+  /// Wraps the string at [lineLength] characters, breaking at word boundaries.
+  ///
+  /// Example: `'hello world foo'.wrapAt(7)` → `'hello\nworld\nfoo'`
+  String wrapAt(int lineLength) {
+    if (validate().isEmpty) return '';
+    final words = validate().split(' ');
+    final buffer = StringBuffer();
+    var currentLength = 0;
+    for (final word in words) {
+      if (currentLength + word.length > lineLength && currentLength > 0) {
+        buffer.write('\n');
+        currentLength = 0;
+      } else if (currentLength > 0) {
+        buffer.write(' ');
+        currentLength++;
+      }
+      buffer.write(word);
+      currentLength += word.length;
+    }
+    return buffer.toString();
+  }
 }
