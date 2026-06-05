@@ -21,6 +21,7 @@ lib/
     utils/
       default_configs.dart    # mutable global config vars (toast colors, gravity)
       enums.dart              # package-wide enums (MaskType)
+      formx.dart              # FormX<K> — generic multi-field form controller
       patterns.dart           # Patterns class — static regex strings only
       time_formatter.dart     # formatTime() helper for timeAgo
 test/
@@ -75,5 +76,3 @@ test/
 - Each extension file should have at least one test group named after the extension.
 - Do not ship the placeholder `Calculator` test — replace it with real extension tests.
 
-## Known Issues (do not silently work around)
-- `lib/baaba_extensions.dart` is still a stub (`Calculator` class). Replace with proper `export` directives.

@@ -1,3 +1,18 @@
+## 0.5.2
+
+### Added — Utils
+
+#### `FormX<K>` — Generic form controller (`utils/formx.dart`)
+- Manages `TextEditingController` instances for any set of keys — enums, strings, or any Dart type.
+- `[]` operator — retrieve a controller by key; assert fires in debug mode if key is missing.
+- `.values` — `Map<K, String>` of trimmed text values for every field.
+- `.value(key)` — trimmed value for a single field.
+- `.fill(Map<K, String>)` — pre-populate fields from existing data (edit-screen support).
+- `.reset()` — clear all fields at once.
+- `.dispose()` — dispose all controllers in one call; use in `State.dispose()`.
+
+---
+
 ## 0.5.1
 
 ### Fixed

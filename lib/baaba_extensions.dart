@@ -13,6 +13,7 @@ export 'src/scrollx_extensions.dart';
 export 'src/stringx_extensions.dart';
 export 'src/widgetx_extensions.dart';
 // Utils
+export 'src/utils/formx.dart';
 export 'src/utils/default_configs.dart';
 export 'src/utils/enums.dart';
 export 'src/utils/patterns.dart';

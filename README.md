@@ -1088,6 +1088,67 @@ CountdownTimerWidgetx(
 
 ## Utils
 
+### `FormX<K>` — Generic form controller
+
+Manages all `TextEditingController` instances for a form under a single typed object. Works with enums, strings, or any key type — no more declaring a separate controller variable per field.
+
+```dart
+// 1. Define fields as an enum (one per form)
+enum LoginField { email, password }
+
+// 2. Create — one variable instead of many controllers
+late final FormX<LoginField> form;
+
+@override
+void initState() {
+  super.initState();
+  form = FormX(LoginField.values);
+}
+
+@override
+void dispose() {
+  form.dispose(); // disposes all controllers at once
+  super.dispose();
+}
+
+// 3. Wire up — works with TextField, TextFormField, with or without a Form widget
+TextFormField(controller: form[LoginField.email])
+TextField(controller: form[LoginField.password])
+
+// 4. Get all values on submit
+final data = form.values;
+// {LoginField.email: 'ali@gmail.com', LoginField.password: '1234'}
+
+// 5. Get a single value
+final email = form.value(LoginField.email);
+
+// 6. Pre-fill for edit screens
+form.fill({LoginField.email: existingUser.email});
+
+// 7. Clear all fields
+form.reset();
+```
+
+String keys work identically if you prefer not to define an enum:
+
+```dart
+final form = FormX(['name', 'email', 'phone']);
+TextFormField(controller: form['name'])
+final data = form.values; // {'name': 'Ali', 'email': '...', 'phone': '...'}
+```
+
+| Member | Description |
+|---|---|
+| `FormX(List<K> keys)` | Creates a controller for each key |
+| `form[key]` | Returns the `TextEditingController` for `key` |
+| `form.values` | `Map<K, String>` of trimmed values for all fields |
+| `form.value(key)` | Trimmed value for a single field |
+| `form.fill(Map<K, String>)` | Pre-populates fields from existing data |
+| `form.reset()` | Clears all fields |
+| `form.dispose()` | Disposes all controllers — call in `State.dispose()` |
+
+---
+
 ### `Patterns`
 
 Static regex strings for common validation:
