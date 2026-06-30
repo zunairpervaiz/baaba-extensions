@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:baaba_extensions/baaba_extensions.dart';
 
+enum _F { name, email, password }
+
 void main() {
   // ──────────────────────────────────────────────
   // StringExtension
@@ -1071,6 +1073,349 @@ void main() {
           return const SizedBox.shrink();
         }),
       ));
+    });
+
+    testWidgets('pickDate — returns selected date', (tester) async {
+      DateTime? picked;
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () async {
+              picked = await ctx.pickDate(
+                initialDate: DateTime(2024, 6, 15),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+            },
+            child: const Text('pick'),
+          );
+        }),
+      ));
+      await tester.tap(find.text('pick'));
+      await tester.pumpAndSettle();
+      // Confirm the dialog
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(picked, isNotNull);
+    });
+
+    testWidgets('pickDate — returns null on cancel', (tester) async {
+      DateTime? picked = DateTime(2000);
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () async {
+              picked = await ctx.pickDate(
+                initialDate: DateTime(2024, 6, 15),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+            },
+            child: const Text('pick'),
+          );
+        }),
+      ));
+      await tester.tap(find.text('pick'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(picked, isNull);
+    });
+
+    testWidgets('pickTime — returns selected time', (tester) async {
+      TimeOfDay? picked;
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () async {
+              picked = await ctx.pickTime(
+                initialTime: const TimeOfDay(hour: 9, minute: 30),
+                initialEntryMode: TimePickerEntryMode.input,
+              );
+            },
+            child: const Text('pick'),
+          );
+        }),
+      ));
+      await tester.tap(find.text('pick'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(picked, isNotNull);
+    });
+
+    testWidgets('pickTime — returns null on cancel', (tester) async {
+      TimeOfDay? picked = const TimeOfDay(hour: 0, minute: 0);
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () async {
+              picked = await ctx.pickTime(
+                initialTime: const TimeOfDay(hour: 9, minute: 30),
+                initialEntryMode: TimePickerEntryMode.input,
+              );
+            },
+            child: const Text('pick'),
+          );
+        }),
+      ));
+      await tester.tap(find.text('pick'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(picked, isNull);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // FormX
+  // ──────────────────────────────────────────────
+  group('FormX', () {
+    test('isEmpty — true when all fields are blank', () {
+      final form = FormX(_F.values);
+      expect(form.isEmpty, true);
+      form.dispose();
+    });
+
+    test('isEmpty — false when any field has text', () {
+      final form = FormX(_F.values);
+      form[_F.name].text = 'Ali';
+      expect(form.isEmpty, false);
+      form.dispose();
+    });
+
+    test('isEmpty — true when fields contain only whitespace', () {
+      final form = FormX(_F.values);
+      form[_F.name].text = '   ';
+      expect(form.isEmpty, true);
+      form.dispose();
+    });
+
+    test('isDirty — false on fresh form', () {
+      final form = FormX(_F.values);
+      expect(form.isDirty, false);
+      form.dispose();
+    });
+
+    test('isDirty — true after a field is changed', () {
+      final form = FormX(_F.values);
+      form[_F.email].text = 'a@b.com';
+      expect(form.isDirty, true);
+      form.dispose();
+    });
+
+    test('isDirty — false immediately after fill()', () {
+      final form = FormX(_F.values);
+      form.fill({_F.name: 'Ali', _F.email: 'a@b.com'});
+      expect(form.isDirty, false);
+      form.dispose();
+    });
+
+    test('isDirty — true after fill() then user edits', () {
+      final form = FormX(_F.values);
+      form.fill({_F.name: 'Ali'});
+      form[_F.name].text = 'Bob';
+      expect(form.isDirty, true);
+      form.dispose();
+    });
+
+    test('isDirty — false after reset()', () {
+      final form = FormX(_F.values);
+      form[_F.name].text = 'Ali';
+      form.reset();
+      expect(form.isDirty, false);
+      form.dispose();
+    });
+
+    testWidgets('focus() moves focus to the target field', (tester) async {
+      final form = FormX(_F.values);
+      late BuildContext ctx;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (c) {
+            ctx = c;
+            return Column(children: [
+              TextField(
+                  controller: form[_F.name], focusNode: form.focusNode(_F.name)),
+              TextField(
+                  controller: form[_F.email],
+                  focusNode: form.focusNode(_F.email)),
+            ]);
+          }),
+        ),
+      ));
+      form.focus(_F.email, ctx);
+      await tester.pump();
+      expect(form.focusNode(_F.email).hasFocus, true);
+      form.dispose();
+    });
+
+    test('validate — returns null for passing fields', () {
+      final form = FormX(_F.values);
+      form.fill({_F.name: 'Ali', _F.email: 'a@b.com'});
+      final errors = form.validate({
+        _F.name: (v) => v.isEmpty ? 'Required' : null,
+        _F.email: (v) => v.isEmpty ? 'Required' : null,
+      });
+      expect(errors[_F.name], isNull);
+      expect(errors[_F.email], isNull);
+      form.dispose();
+    });
+
+    test('validate — returns error message for failing fields', () {
+      final form = FormX(_F.values);
+      final errors = form.validate({
+        _F.name: (v) => v.isEmpty ? 'Required' : null,
+        _F.password: (v) => v.length < 8 ? 'Too short' : null,
+      });
+      expect(errors[_F.name], 'Required');
+      expect(errors[_F.password], 'Too short');
+      form.dispose();
+    });
+
+    test('validate — only checks keys present in validators map', () {
+      final form = FormX(_F.values);
+      final errors = form.validate({
+        _F.name: (v) => v.isEmpty ? 'Required' : null,
+      });
+      expect(errors.containsKey(_F.email), false);
+      expect(errors.containsKey(_F.password), false);
+      form.dispose();
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // LoadingOverlayWidgetx
+  // ──────────────────────────────────────────────
+  group('LoadingOverlayWidgetx', () {
+    testWidgets('renders child when not loading', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: false,
+          child: Text('content'),
+        ),
+      ));
+      expect(find.text('content'), findsOneWidget);
+    });
+
+    testWidgets('renders child and overlay when loading', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+          body: LoadingOverlayWidgetx(
+            isLoading: true,
+            child: Text('content'),
+          ),
+        ),
+      ));
+      expect(find.text('content'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('blocks child taps when loading', (tester) async {
+      int taps = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: true,
+          child: GestureDetector(
+            onTap: () => taps++,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(SizedBox), warnIfMissed: false);
+      expect(taps, 0);
+    });
+
+    testWidgets('allows child taps when not loading', (tester) async {
+      int taps = 0;
+      await tester.pumpWidget(MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: false,
+          child: GestureDetector(
+            onTap: () => taps++,
+            child: const ColoredBox(
+              color: Colors.red,
+              child: SizedBox(width: 100, height: 100),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.byType(GestureDetector));
+      expect(taps, 1);
+    });
+
+    testWidgets('fullScreen mode shows ColoredBox barrier', (tester) async {
+      const barrierColor = Colors.red;
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: true,
+          mode: LoadingOverlayMode.fullScreen,
+          barrierColor: barrierColor,
+          child: SizedBox.expand(),
+        ),
+      ));
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is ColoredBox && w.color == barrierColor,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('centered mode shows no ColoredBox barrier', (tester) async {
+      const barrierColor = Color(0x89000000);
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: true,
+          mode: LoadingOverlayMode.centered,
+          child: SizedBox.expand(),
+        ),
+      ));
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is ColoredBox && w.color == barrierColor,
+        ),
+        findsNothing,
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('accepts a custom indicator', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: true,
+          indicator: Icon(Icons.hourglass_empty),
+          child: SizedBox.expand(),
+        ),
+      ));
+      expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('overlay opacity is 0 when not loading', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: false,
+          child: SizedBox.expand(),
+        ),
+      ));
+      final opacity = tester.widget<AnimatedOpacity>(
+        find.byType(AnimatedOpacity),
+      );
+      expect(opacity.opacity, 0.0);
+    });
+
+    testWidgets('overlay opacity is 1 when loading', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: LoadingOverlayWidgetx(
+          isLoading: true,
+          child: SizedBox.expand(),
+        ),
+      ));
+      final opacity = tester.widget<AnimatedOpacity>(
+        find.byType(AnimatedOpacity),
+      );
+      expect(opacity.opacity, 1.0);
     });
   });
 }

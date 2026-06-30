@@ -1,6 +1,6 @@
 name: baaba_extensions
 description: "Handy pack of extensions for the Flutter SDK — strings, numbers, lists, widgets, dates, booleans, BuildContext, and beautiful dialogs."
-version: 0.5.2
+version: 0.5.3
 
 environment:
   sdk: ^3.11.3
@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
   fluttertoast: ^9.0.0
   flutter_auto_size_text: ^5.0.0
 

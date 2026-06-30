@@ -844,6 +844,51 @@ SkeletonLoaderWidgetx(
 
 ---
 
+### `LoadingOverlayWidgetx`
+
+A blocking overlay that sits on top of any widget, preventing user interaction while an async operation is in progress. The overlay fades in and out smoothly using `AnimatedOpacity`.
+
+```dart
+// Full-screen translucent barrier (default):
+LoadingOverlayWidgetx(
+  isLoading: _isBusy,
+  child: MyScreen(),
+)
+
+// Centred spinner only — no background tint:
+LoadingOverlayWidgetx(
+  isLoading: _isBusy,
+  mode: LoadingOverlayMode.centered,
+  child: MyScreen(),
+)
+
+// Custom indicator and barrier colour:
+LoadingOverlayWidgetx(
+  isLoading: _isBusy,
+  barrierColor: Colors.white70,
+  indicator: const MyBrandedSpinner(),
+  child: MyScreen(),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `child` | `Widget` | required | Widget rendered beneath the overlay |
+| `isLoading` | `bool` | required | When `true`, overlay is visible and child is non-interactive |
+| `mode` | `LoadingOverlayMode` | `fullScreen` | Visual style — translucent barrier or spinner-only |
+| `barrierColor` | `Color` | `Colors.black54` | Background colour used in `fullScreen` mode |
+| `indicator` | `Widget?` | `CircularProgressIndicator` | Custom loading indicator |
+| `animationDuration` | `Duration` | `200ms` | Duration of the fade-in / fade-out animation |
+
+**`LoadingOverlayMode` enum:**
+
+```dart
+LoadingOverlayMode.fullScreen  // translucent barrier fills the widget area (default)
+LoadingOverlayMode.centered    // spinner only, no background tint
+```
+
+---
+
 ### `EmptyStateWidgetx`
 
 Centered empty state with icon, title, optional subtitle, and action button.

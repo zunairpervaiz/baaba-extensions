@@ -1,3 +1,23 @@
+## 0.5.3
+
+### Added — Widgets
+
+#### `LoadingOverlayWidgetx` (`widgets/loading_overlay_widgetx.dart`)
+- Blocking overlay that sits on top of any child widget via a `Stack`.
+- When `isLoading` is `true`, the child absorbs no pointer events (`AbsorbPointer`) and the overlay fades in (`AnimatedOpacity`). When `false`, the overlay fades out and the child becomes interactive again.
+- `mode: LoadingOverlayMode.fullScreen` (default) — translucent `barrierColor` layer fills the widget area with a centred spinner.
+- `mode: LoadingOverlayMode.centered` — only the spinner is shown; no background tint.
+- `indicator` — accepts any widget as a custom loading spinner; defaults to `CircularProgressIndicator`.
+- `barrierColor` — configurable barrier colour; defaults to `Colors.black54`.
+- `animationDuration` — configurable fade duration; defaults to `200ms`.
+- `LoadingOverlayMode` enum added to `utils/enums.dart`.
+
+### Documentation
+- Updated `README.md` to document `LoadingOverlayWidgetx` and `LoadingOverlayMode`.
+- Rewrote `CLAUDE.md` to reflect the complete current folder layout (all extension files, `widgets/` subfolder), add widget naming rules, a Known Issues table, and corrections to the global-state and regex rules.
+
+---
+
 ## 0.5.2
 
 ### Added — Utils

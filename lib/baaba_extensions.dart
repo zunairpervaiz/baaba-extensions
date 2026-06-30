@@ -24,6 +24,7 @@ export 'src/widgets/countdown_timer_widgetx.dart';
 export 'src/widgets/empty_state_widgetx.dart';
 export 'src/widgets/expandable_widgetx.dart';
 export 'src/widgets/gradient_button_widgetx.dart';
+export 'src/widgets/loading_overlay_widgetx.dart';
 export 'src/widgets/horizontal_list_without_height.dart';
 export 'src/widgets/pin_input_widgetx.dart';
 export 'src/widgets/rating_widgetx.dart';

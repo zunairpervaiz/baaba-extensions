@@ -133,4 +133,89 @@ extension ContextX on BuildContext {
                 ? RoundedRectangleBorder(borderRadius: borderRadius)
                 : null),
       );
+
+  // ── Pickers ───────────────────────────────────────────────────────────────
+
+  /// Shows a Material date picker and returns the selected [DateTime], or
+  /// `null` if the user cancels.
+  ///
+  /// All parameters are optional. Defaults: [initialDate] → today,
+  /// [firstDate] → 100 years ago, [lastDate] → 100 years from now.
+  ///
+  /// Example:
+  /// ```dart
+  /// final date = await context.pickDate();
+  /// final date = await context.pickDate(initialDate: someDate, helpText: 'Pick a date');
+  /// ```
+  Future<DateTime?> pickDate({
+    DateTime? initialDate,
+    DateTime? firstDate,
+    DateTime? lastDate,
+    DatePickerEntryMode initialEntryMode = DatePickerEntryMode.calendar,
+    DatePickerMode initialDatePickerMode = DatePickerMode.day,
+    SelectableDayPredicate? selectableDayPredicate,
+    String? helpText,
+    String? cancelText,
+    String? confirmText,
+    Locale? locale,
+    TransitionBuilder? builder,
+    bool useRootNavigator = true,
+    RouteSettings? routeSettings,
+  }) {
+    final now = DateTime.now();
+    return showDatePicker(
+      context: this,
+      initialDate: initialDate ?? now,
+      firstDate: firstDate ?? DateTime(now.year - 100),
+      lastDate: lastDate ?? DateTime(now.year + 100),
+      initialEntryMode: initialEntryMode,
+      initialDatePickerMode: initialDatePickerMode,
+      selectableDayPredicate: selectableDayPredicate,
+      helpText: helpText,
+      cancelText: cancelText,
+      confirmText: confirmText,
+      locale: locale,
+      builder: builder,
+      useRootNavigator: useRootNavigator,
+      routeSettings: routeSettings,
+    );
+  }
+
+  /// Shows a Material time picker and returns the selected [TimeOfDay], or
+  /// `null` if the user cancels.
+  ///
+  /// [initialTime] defaults to [TimeOfDay.now].
+  ///
+  /// Example:
+  /// ```dart
+  /// final time = await context.pickTime();
+  /// final time = await context.pickTime(initialTime: TimeOfDay(hour: 9, minute: 0));
+  /// ```
+  Future<TimeOfDay?> pickTime({
+    TimeOfDay? initialTime,
+    TimePickerEntryMode initialEntryMode = TimePickerEntryMode.dial,
+    String? helpText,
+    String? cancelText,
+    String? confirmText,
+    String? hourLabelText,
+    String? minuteLabelText,
+    TransitionBuilder? builder,
+    bool useRootNavigator = true,
+    RouteSettings? routeSettings,
+    Orientation? orientation,
+  }) =>
+      showTimePicker(
+        context: this,
+        initialTime: initialTime ?? TimeOfDay.now(),
+        initialEntryMode: initialEntryMode,
+        helpText: helpText,
+        cancelText: cancelText,
+        confirmText: confirmText,
+        hourLabelText: hourLabelText,
+        minuteLabelText: minuteLabelText,
+        builder: builder,
+        useRootNavigator: useRootNavigator,
+        routeSettings: routeSettings,
+        orientation: orientation,
+      );
 }
