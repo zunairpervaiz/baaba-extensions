@@ -203,6 +203,146 @@ items.none((e) => e.isDeleted);                  // true if all are not deleted
 [[1, 2], [3, 4]].flatten(); // → [1, 2, 3, 4]
 ```
 
+### `ListX` — additional members
+
+Beyond the aggregation helpers above, `ListX` also covers emptiness, lookups, keying, sorting, set maths, and client-side paging — all null-safe on the receiver.
+
+**Emptiness** — mirrors `StringExtension`:
+
+```dart
+List<int>? items;
+items.isEmptyOrNull;      // true
+items.isNotEmptyOrNull;   // false
+items.lengthOrZero;       // 0
+items.firstOrNull;        // null — no `?.` needed, unlike Iterable.firstOrNull
+items.lastOrNull;         // null
+```
+
+**Keying and grouping:**
+
+```dart
+users.associateBy((u) => u.id);                   // Map<String, User> — last duplicate wins
+users.associateWith((u) => u.id, (u) => u.name);  // Map<String, String>
+orders.groupCountBy((o) => o.status);             // {pending: 4, paid: 12}
+users.distinctBy((u) => u.id);                    // distinct() needs value equality; this doesn't
+```
+
+**Lookups that never throw:**
+
+| Method | Returns |
+|---|---|
+| `firstWhereOrNull` / `lastWhereOrNull` | The match, or `null` |
+| `singleWhereOrNull(predicate)` | The only match; `null` for none **or** many |
+| `indexWhereOrNull(predicate)` | The index, or `null` — not `-1`, so it composes with `??` |
+
+**Sorting** — all return a copy, leaving the source untouched:
+
+```dart
+posts.sortedByDescending((p) => p.createdAt);
+items.sortedWith((a, b) => a.length.compareTo(b.length));
+users.sortedByMany([(u) => u.lastName, (u) => u.firstName]);  // ties fall through
+rows.isSortedBy((r) => r.position);
+```
+
+**Mapping and filtering:**
+
+```dart
+rows.mapNotNull((r) => int.tryParse(r.id));   // map + drop nulls in one pass
+users.whereNotNullBy((u) => u.email);         // keep elements whose field is set
+users.joinToString((u) => u.name, separator: ' & ', prefix: '[', suffix: ']');
+```
+
+**Set maths and paging:**
+
+```dart
+roles.containsAny([Role.admin, Role.owner]);
+roles.containsAll([Role.admin]);
+allTags.except(usedTags);        // order preserved
+allTags.intersect(userTags);     // order preserved, duplicates dropped
+
+products.pageAt(2, size: 20);    // items 21-40; 1-based to match PaginatorX.firstPage
+```
+
+**Randomness** — pass a seeded `Random` to make tests reproducible:
+
+```dart
+deck.shuffled();                 // a copy; List.shuffle() mutates in place
+banners.randomOrNull();          // null when empty
+```
+
+---
+
+### `IterableNullableX` — on `Iterable<T?>?`
+
+```dart
+[1, null, 3].whereNotNull();   // [1, 3]
+[null, null, 7].firstNotNull;  // 7
+```
+
+---
+
+### `IterableAsyncX` — on `Iterable<T>?`
+
+Async iteration without hand-rolling loops or `Future.wait`.
+
+```dart
+// Sequential — for writes that must not overlap, or a rate-limited API.
+final saved = await drafts.mapAsync((d) => api.save(d));
+await files.forEachAsync((f) => uploader.send(f));
+
+// Concurrent, results in the original order.
+final users = await ids.mapParallel((id) => api.getUser(id), concurrency: 4);
+
+// Stops at the first match; later elements are never tested.
+final first = await servers.firstWhereAsync((s) => s.ping());
+```
+
+> `concurrency` caps how many run at once. Leave it null to start them all together — but firing an unbounded number of requests at a server is a common cause of timeouts, so prefer a cap for network work.
+
+---
+
+### `ListAccessX` — on `List<T>`
+
+Indexing that cannot throw.
+
+```dart
+['a', 'b'].getOrNull(5);          // null
+['a'].getOrElse(9, 'fallback');   // 'fallback'
+[1, 2, 3].safeSublist(1, 99);     // [2, 3] — both bounds clamped
+```
+
+---
+
+### `ListMutationX` — on `List<T>`
+
+In-place edits.
+
+```dart
+selectedIds.toggle(id);          // add if absent, remove if present
+items.moveItem(0, 2);            // what ReorderableListView.onReorder hands you
+actions.addIf(user.isAdmin, deleteAction);
+actions.addAllIf(isOwner, ownerActions);
+final gone = items.removeWhereCounted((t) => t.isDone);   // how many went
+```
+
+---
+
+### `ListTransformX` — on `List<T>`
+
+Copy-on-write edits for immutable state. The source list is never modified.
+
+```dart
+todos.replaceWhere((t) => t.id == id, updated);
+state.orders.upsert(order, by: (o) => o.id);   // update the match, or append
+[1, 2, 3, 4].rotate(1);                        // [2, 3, 4, 1]; negative rotates right
+oldTags.diff(newTags);                         // (added: [...], removed: [...])
+['a', 'b'].intersperse('-');                   // ['a', '-', 'b']
+```
+
+> The generic separator helper is called `intersperse`, not `separatedBy`, so that it cannot shadow `ListxWidgetExtensions.separatedBy` on a homogeneous widget list such as `List<Text>`, where both extensions would otherwise apply.
+
+---
+
 ### `ListSplit` — on `List<T>`
 
 ```dart
@@ -227,24 +367,58 @@ list.swap(0, 2); // → [3, 2, 1]
 
 ### `ListxWidgetExtensions` — on `List<Widget>`
 
-Convert a plain list of widgets directly into a layout widget using method chaining.
+Convert a plain list of widgets directly into a layout widget using method chaining. Every builder returns its **concrete** type (`Row`, `Column`, `Wrap`, `GridView`…), not a widened `Widget`.
 
 ```dart
 [Text('A'), Text('B'), Text('C')].toRow();
 [Text('A'), Text('B'), Text('C')].toColumn(mainAxisAlignment: MainAxisAlignment.center);
 [Text('A'), Text('B'), Text('C')].toStack(alignment: Alignment.center);
 
-// ListView (children mode)
-[Text('A'), Text('B'), Text('C')].toList(shrinkWrap: true);
-
-// ListView.builder
-[Text('A'), Text('B'), Text('C')].toListView(
+// ListView — children mode by default, builder mode when itemBuilder is passed.
+tiles.toListView(shrinkWrap: true);
+tiles.toListView(
   itemBuilder: (context, i) => ListTile(title: Text('Item $i')),
   physics: const NeverScrollableScrollPhysics(),
 );
 ```
 
-All methods accept the same named parameters as their Flutter counterparts (`mainAxisAlignment`, `crossAxisAlignment`, `scrollDirection`, `physics`, `padding`, etc.).
+> There is deliberately no `toList()`. `Iterable.toList` is an instance method and instance members always beat extensions, so such a member could never be reached — use `toListView()` instead.
+
+**Layout builders**
+
+| Method | Returns |
+|---|---|
+| `toRow(...)` / `toColumn(...)` / `toStack(...)` | `Row` / `Column` / `Stack` |
+| `toWrap({spacing, runSpacing, alignment, ...})` | `Wrap` — flows onto as many lines as needed |
+| `toGrid({crossAxisCount, spacing, childAspectRatio, ...})` | `GridView` |
+| `toListView({itemBuilder, ...})` | `ListView`, children or builder mode |
+| `toPageView({controller, onPageChanged, ...})` | `PageView` |
+| `toIndexedStack({index, ...})` | `IndexedStack` — every child keeps its state |
+| `toSliverList()` / `toSliverGrid({crossAxisCount, ...})` | For a `CustomScrollView` |
+| `toScrollableRow(...)` / `toScrollableColumn(...)` | A `Row`/`Column` that scrolls instead of overflowing |
+
+**List-to-list helpers** — these return a new `List<Widget>`, so they chain into any of the builders above:
+
+```dart
+// Separators go between children, never before the first or after the last.
+tiles.separatedBy(const Divider(height: 1)).toColumn()
+fields.withSpacing(12).toColumn()               // SizedBox gaps
+rows.withDividers(indent: 16).toColumn()        // Divider between each
+
+// Wrap every child.
+[left, right].expanded().toRow()                // each in an Expanded
+items.flexible(fit: FlexFit.tight).toRow()
+cards.paddedAll(8).toColumn()
+cards.paddedSymmetric(horizontal: 16).toColumn()
+```
+
+| Method | Description |
+|---|---|
+| `separatedBy(Widget)` | Insert a separator between every pair of children |
+| `withSpacing(double, {Axis})` | Insert a `SizedBox` gap between children |
+| `withDividers({height, thickness, indent, endIndent, color})` | Insert a `Divider` between children |
+| `expanded({flex})` / `flexible({flex, fit})` | Wrap **each** child |
+| `paddedAll(double)` / `paddedSymmetric({horizontal, vertical})` | Pad each child |
 
 ---
 
@@ -400,6 +574,51 @@ await context.showInfoDialog(
 | `messageStyle` | `TextStyle?` | theme | Message text style |
 | `borderRadius` | `BorderRadius?` | global `circular(24)` | Dialog corner radius |
 | `barrierDismissible` | `bool` | `true` | Tap-outside to dismiss |
+
+---
+
+### `SheetX` — on `BuildContext`
+
+The bottom-sheet counterpart to `DialogX`. Drag handle, rounded top corners, safe-area padding, keyboard avoidance, and a height cap are all handled — so a sheet works for a form as readily as for a menu.
+
+| Method | Returns |
+|---|---|
+| `showSheet<T>({required Widget child, ...})` | The value the sheet was popped with |
+| `showScrollableSheet<T>({required builder, ...})` | Draggable sheet between `minSize` and `maxSize` |
+| `showActionSheet<T>({required List<SheetActionX<T>> actions, ...})` | The value of the tapped row, or `null` |
+
+```dart
+// A sheet containing a form. It lifts above the keyboard automatically.
+final note = await context.showSheet<String>(
+  title: 'Add a note',
+  child: NoteForm(),
+);
+
+// A draggable, scrolling sheet. Attach the controller to the scrollable.
+context.showScrollableSheet(
+  title: 'Select a city',
+  initialSize: 0.6,
+  maxSize: 0.95,
+  builder: (context, scrollController) => ListView.builder(
+    controller: scrollController,
+    itemCount: cities.length,
+    itemBuilder: (_, i) => ListTile(title: Text(cities[i])),
+  ),
+);
+
+// The mobile-native alternative to a dialog full of buttons.
+final choice = await context.showActionSheet<String>(
+  title: 'Manage post',
+  message: 'This cannot be undone.',
+  actions: const [
+    SheetActionX(label: 'Edit',   icon: Icons.edit_outlined,  value: 'edit'),
+    SheetActionX(label: 'Share',  icon: Icons.share_outlined, value: 'share'),
+    SheetActionX(label: 'Delete', icon: Icons.delete_outline, value: 'delete', isDestructive: true),
+  ],
+);
+```
+
+`SheetActionX<T>` carries `label`, `subtitle`, `icon` or `leading`, `value`, `onTap`, `isDestructive`, `isEnabled`, and `color`. Rows pop the sheet **before** firing `onTap`, so the callback is free to push a route or open another sheet.
 
 ---
 
@@ -1131,7 +1350,723 @@ CountdownTimerWidgetx(
 
 ---
 
+### `PaginatedListWidgetx<T>`
+
+Infinite-scrolling list or grid. It fetches the next page *before* the user hits the bottom, and ships with the loading, empty, and error states already wired — plus pull-to-refresh and an optional Retry / Cancel dialog.
+
+**Simplest form** — a fetcher that returns a list:
+
+```dart
+PaginatedListWidgetx<User>(
+  fetchItems: (page) => api.getUsers(page: page, limit: 20),
+  itemBuilder: (context, user, index) => UserTile(user),
+)
+```
+
+That single call already gives you a skeleton placeholder on first load, an empty state when there are no results, an inline retry when a page fails, a spinner footer while the next page loads, pull-to-refresh, and prefetching 200px before the end.
+
+**Cursor / `hasMore` aware APIs** — return a `PageX` instead:
+
+```dart
+PaginatedListWidgetx<Post>(
+  fetchPage: (page, cursor) async {
+    final res = await api.feed(cursor: cursor);
+    return PageX(items: res.posts, nextCursor: res.next, hasMore: res.hasMore);
+  },
+  itemBuilder: (context, post, index) => PostCard(post),
+  separator: const Divider(height: 1),
+  itemId: (post) => post.id,        // drops duplicates across pages
+  errorMode: PaginationErrorMode.dialogOnFirstPage,
+)
+```
+
+**Own the controller** when the screen needs to mutate the list or refresh it from elsewhere — a delete button, a pull-to-refresh in an app bar, a search field:
+
+```dart
+late final paginator = PaginatorX<User>(
+  fetchPage: (page, _) async => PageX(items: await api.users(page)),
+  itemId: (u) => u.id,
+);
+
+PaginatedListWidgetx<User>(
+  controller: paginator,
+  itemBuilder: (context, user, index) => UserTile(
+    user,
+    onDelete: () async {
+      await api.delete(user.id);
+      paginator.removeWhere((u) => u.id == user.id);  // no refetch
+    },
+  ),
+)
+
+@override
+void dispose() {
+  paginator.dispose();   // you own it, so you dispose it
+  super.dispose();
+}
+```
+
+**As a grid** — pass a `gridDelegate`:
+
+```dart
+PaginatedListWidgetx<Photo>(
+  fetchItems: (page) => api.photos(page),
+  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8,
+  ),
+  itemBuilder: (context, photo, index) => PhotoTile(photo),
+)
+```
+
+**Search-driven list** — swap the fetcher, don't rebuild the widget:
+
+```dart
+onSearchChanged: (query) => paginator.updateFetcher(
+  (page, _) async => PageX(items: await api.search(query, page: page)),
+);
+```
+
+#### Error handling
+
+An inline retry is **always** available: a retry state in the body when the first page fails, a retry row in the footer when a later page fails. `errorMode` only decides whether a blocking dialog appears on top of it:
+
+```dart
+PaginationErrorMode.inline             // default — inline retry only
+PaginationErrorMode.dialog             // dialog on every failure
+PaginationErrorMode.dialogOnFirstPage  // dialog only when the list is empty
+```
+
+`inline` is the default on purpose: page loads fail in bursts on a flaky mobile connection, and a dialog thrown over content the user is reading — repeatedly — is worse than a quiet retry row. `dialogOnFirstPage` is the recommended setting for most screens; a blank screen does deserve an explanation. Cancelling the dialog pauses auto-loading so scrolling doesn't immediately re-fire the request that just failed — the inline Retry brings it back.
+
+```dart
+PaginatedListWidgetx<Order>(
+  fetchItems: (page) => api.orders(page),
+  itemBuilder: (context, order, index) => OrderTile(order),
+  errorMode: PaginationErrorMode.dialogOnFirstPage,
+  timeout: const Duration(seconds: 15),
+  errorMessageBuilder: (error) => error is TimeoutException
+      ? 'The server is slow right now.'
+      : 'Could not load your orders.',
+  onError: (error, stack) => crashlytics.recordError(error, stack),
+)
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `itemBuilder` | `Widget Function(ctx, T item, int index)` | required | Builds one row |
+| `controller` | `PaginatorX<T>?` | — | Drive an existing controller (you dispose it) |
+| `fetchPage` | `Future<PageX<T>> Function(int page, String? cursor)?` | — | Page fetcher with `hasMore` / cursor |
+| `fetchItems` | `Future<List<T>> Function(int page)?` | — | Simple page fetcher |
+| `pageSize` | `int?` | global `20` | Items per page, used to infer `hasMore` |
+| `firstPage` | `int` | `1` | Page index of the first request |
+| `timeout` | `Duration?` | — | Per-request timeout |
+| `itemId` | `Object Function(T)?` | — | Stable identity; drops cross-page duplicates |
+| `autoLoad` | `bool` | `true` | Load the first page on mount |
+| `prefetchThreshold` | `double?` | global `200` | Pixels from the end that trigger the next page |
+| `prefetchItemCount` | `int` | `3` | Also trigger when one of the last N items builds |
+| `maxAutoFillPages` | `int` | `10` | Cap on pages loaded without any user scroll |
+| `errorMode` | `PaginationErrorMode` | `inline` | Whether failures also raise a dialog |
+| `enableRefresh` | `bool` | `true` | Wrap in a `RefreshIndicator` |
+| `onRefresh` | `Future<void> Function()?` | — | Extra work after a pull-to-refresh |
+| `onError` | `Function(Object, StackTrace?)?` | — | Called once per failure |
+| `onErrorCancelled` | `VoidCallback?` | — | User dismissed the dialog with Cancel |
+| `errorMessageBuilder` | `String Function(Object?)?` | — | Error → message shown to the user |
+| `loadingBuilder` | `WidgetBuilder?` | `SkeletonListWidgetx` | First-page loading state |
+| `emptyBuilder` | `WidgetBuilder?` | `EmptyStateWidgetx` | No-results state |
+| `errorBuilder` | `Widget Function(ctx, error, retry)?` | `EmptyStateWidgetx` | First-page error state |
+| `loadMoreBuilder` | `WidgetBuilder?` | spinner | Footer while a later page loads |
+| `loadMoreErrorBuilder` | `Widget Function(ctx, error, retry)?` | retry row | Footer when a later page fails |
+| `endBuilder` | `WidgetBuilder?` | — | Footer once every page is loaded |
+| `header` / `footer` | `Widget?` | — | Pinned inside the scroll view |
+| `gridDelegate` | `SliverGridDelegate?` | — | Render a grid instead of a list |
+| `separator` / `separatorBuilder` | `Widget?` / `IndexedWidgetBuilder?` | — | Gap between rows |
+| `padding` | `EdgeInsets` | `EdgeInsets.all(16)` | Padding around the items |
+| `scrollController` | `ScrollController?` | — | Controller for this list's own scroll view |
+| `parentScrollController` | `ScrollController?` | — | Outer controller to observe when nested |
+| `emptyTitle` / `emptySubtitle` / `emptyIcon` | `String?` / `String?` / `IconData` | globals | Default empty state copy |
+| `errorTitle` / `retryText` / `cancelText` | `String?` | globals | Error and dialog copy |
+| `physics`, `shrinkWrap`, `scrollDirection`, `reverse`, `primary`, `cacheExtent`, `keyboardDismissBehavior`, `clipBehavior`, `restorationId` | — | — | Forwarded to the scroll view |
+
+> **Nested in another scrollable?** With `shrinkWrap: true` and `NeverScrollableScrollPhysics`, this widget cannot see the outer scroll view. Pass the outer controller as `parentScrollController` so prefetching keeps working.
+
+---
+
+### `SkeletonListWidgetx`
+
+Shimmering list placeholder — the default first-page loading state of `PaginatedListWidgetx`, usable anywhere on its own.
+
+```dart
+const SkeletonListWidgetx(rows: 8)
+const SkeletonListWidgetx(rows: 6, showAvatar: false, rowHeight: 44)
+
+// Custom row shape:
+SkeletonListWidgetx(
+  rows: 5,
+  rowBuilder: (context, index) =>
+      const SkeletonLoaderWidgetx(width: double.infinity, height: 120),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `rows` | `int` | `6` | Number of placeholder rows |
+| `rowHeight` | `double` | `56` | Row height; drives the line heights |
+| `spacing` | `double` | `12` | Vertical gap between rows |
+| `padding` | `EdgeInsets` | `EdgeInsets.all(16)` | Padding around the list |
+| `showAvatar` | `bool` | `true` | Leading circular placeholder |
+| `avatarSize` | `double` | `44` | Avatar diameter |
+| `rowBuilder` | `IndexedWidgetBuilder?` | — | Fully custom row |
+| `baseColor` / `highlightColor` | `Color?` | theme grey | Shimmer colours |
+
+---
+
+### `ButtonWidgetx`
+
+A button that understands asynchronous work. When `onPressed` returns a `Future`, the button disables itself, swaps its label for a spinner, and restores itself once the future settles — so the usual `bool _isLoading` + `setState` boilerplate disappears, and a second tap cannot fire while the first is still running.
+
+```dart
+ButtonWidgetx(
+  text: 'Save',
+  icon: Icons.check_rounded,
+  onPressed: () async => await api.saveProfile(form.values),
+)
+
+// Destructive, full width.
+ButtonWidgetx.danger(
+  text: 'Delete account',
+  expand: true,
+  onPressed: () => api.deleteAccount(),
+)
+
+// Loading state owned by your state management instead.
+ButtonWidgetx(
+  text: 'Submit',
+  isLoading: state.isSubmitting,
+  onPressed: () => bloc.add(Submitted()),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `text` | `String` | required | Button label |
+| `onPressed` | `FutureOr<void> Function()?` | `null` | Sync or async; `null` disables the button |
+| `variant` | `ButtonVariantX` | `filled` | `filled`, `tonal`, `outlined`, `text`, `danger` |
+| `size` | `ButtonSizeX` | `medium` | `small`, `medium`, `large` |
+| `isLoading` | `bool` | `false` | Forces the loading state on |
+| `isEnabled` | `bool` | `true` | Dims and blocks taps |
+| `expand` | `bool` | `false` | Stretch to full width |
+| `icon` / `trailingIcon` | `IconData?` | `null` | Leading / trailing icon |
+| `child` | `Widget?` | `null` | Replaces the label entirely |
+| `onError` | `void Function(Object, StackTrace)?` | `null` | Receives a failure; rethrows when null |
+| `loadingIndicator` | `Widget?` | `null` | Custom spinner |
+
+Named constructors: `.filled`, `.tonal`, `.outlined`, `.text`, `.danger`.
+
+---
+
+### `TextFieldWidgetx<K>`
+
+The form field that pairs with [`FormX`](#formxk--generic-form-controller). Pass `form:` and `fieldKey:` and the controller, focus node, and next-field traversal are wired for you. Pass a `type:` and the keyboard, autofill hints, icon, obscuring, and validation pattern are chosen to match.
+
+```dart
+enum LoginField { email, password }
+final form = FormX(LoginField.values);
+
+TextFieldWidgetx(
+  form: form,
+  fieldKey: LoginField.email,
+  label: 'Email',
+  type: FieldTypeX.email,   // email keyboard + Patterns.email validation
+  isRequired: true,
+  nextField: LoginField.password,
+)
+
+TextFieldWidgetx(
+  form: form,
+  fieldKey: LoginField.password,
+  label: 'Password',
+  type: FieldTypeX.password, // obscured, with a visibility toggle
+  isRequired: true,
+  minLength: 8,
+)
+
+// Standalone, no FormX.
+TextFieldWidgetx(
+  controller: searchController,
+  hint: 'Search products',
+  type: FieldTypeX.search,
+)
+```
+
+`FieldTypeX` presets: `text`, `email`, `password`, `phone`, `number`, `multiline`, `search`, `url`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `form` / `fieldKey` | `FormX<K>?` / `K?` | `null` | Source of the controller and focus node |
+| `nextField` | `K?` | `null` | Field focused on submit |
+| `type` | `FieldTypeX` | `text` | Keyboard, autofill, icon, pattern preset |
+| `isRequired` | `bool` | `false` | Empty fails validation; appends `*` to the label |
+| `minLength` | `int?` | `null` | Minimum character count |
+| `validationPattern` | `String?` | from `type` | Regex the trimmed value must match |
+| `validator` | `String? Function(String)?` | `null` | Extra check after the built-ins pass |
+| `errorText` | `String?` | `null` | External error — server-side validation |
+| `readOnly` + `onTap` | `bool` + `VoidCallback?` | — | Open a picker instead of the keyboard |
+
+Only what the widget created itself is disposed — a `FormX` or a caller-supplied controller outlives the field.
+
+---
+
+### `AsyncBuilderWidgetx<T>`
+
+`FutureBuilder` with the loading, empty, and error states already wired. What `PaginatedListWidgetx` does for paginated lists, this does for every single-shot fetch.
+
+`future` is a **factory**, not a future, so a rebuild never refires the request and retry can re-run it.
+
+```dart
+AsyncBuilderWidgetx<Profile>(
+  future: () => api.getProfile(userId),
+  builder: (context, profile) => ProfileView(profile),
+)
+
+// A list — the empty state is detected for you.
+AsyncBuilderWidgetx<List<Order>>(
+  future: () => api.getOrders(),
+  emptyTitle: 'No orders yet',
+  enableRefresh: true,
+  builder: (context, orders) => Column(children: orders.map(OrderTile.new).toList()),
+)
+
+// Refetch whenever the id changes.
+AsyncBuilderWidgetx<Product>(
+  future: () => api.getProduct(id),
+  reloadOn: id,
+  builder: (context, product) => ProductView(product),
+)
+
+// Live data.
+AsyncBuilderWidgetx<int>.stream(
+  stream: counter.stream,
+  builder: (context, value) => Text('$value'),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `future` | `Future<T> Function()?` | required | Factory called on mount and on retry |
+| `builder` | `Widget Function(BuildContext, T)` | required | The data state |
+| `reloadOn` | `Object?` | `null` | Refetches when this value changes |
+| `isEmpty` | `bool Function(T)?` | smart default | `null`, empty `Iterable`/`Map`, blank `String` |
+| `keepPreviousData` | `bool` | `false` | Hold the last result through a reload |
+| `enableRefresh` | `bool` | `false` | Wraps the data state in pull-to-refresh |
+| `loadingBuilder` / `emptyBuilder` / `errorBuilder` | builders | package defaults | Override any state |
+| `onError` / `onData` | callbacks | `null` | Fire once per distinct event, after the frame |
+
+The state class `AsyncBuilderWidgetxState<T>` is public, so a `GlobalKey` can call `retry()`.
+
+---
+
+### `QuantityStepperWidgetx`
+
+The `− n +` control used in carts and order screens. Controlled by the parent: `onChanged` fires with the new quantity, always clamped between `min` and `max`.
+
+```dart
+QuantityStepperWidgetx(
+  value: item.quantity,
+  min: 1,
+  max: item.stock,
+  onChanged: (qty) => cart.setQuantity(item, qty),
+  onRemove: () => cart.remove(item), // minus becomes a delete icon at min
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `value` / `onChanged` | `int` / `ValueChanged<int>` | required | Controlled quantity |
+| `min` / `max` / `step` | `int` | `1` / `99` / `1` | Range and increment |
+| `onRemove` | `VoidCallback?` | `null` | Minus turns into a delete icon at `min` |
+| `allowManualInput` | `bool` | `false` | Tap the number and type |
+| `enableLongPressRepeat` | `bool` | `true` | Hold to repeat (never on the remove action) |
+| `isLoading` | `bool` | `false` | Swaps the number for a spinner |
+
+---
+
+### `BadgeWidgetx`
+
+A count or dot badge anchored to the corner of any widget. Hides at zero and caps at `maxCount`, so it never grows unbounded over a tab icon.
+
+```dart
+BadgeWidgetx(count: unreadCount, child: const Icon(Icons.notifications_outlined))
+
+BadgeWidgetx.dot(isVisible: hasUpdates, color: Colors.green, child: const Icon(Icons.person_outline))
+
+BadgeWidgetx(label: 'NEW', child: ProductCard(product))
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `count` | `int?` | `null` | Hidden at `0` unless `showZero` |
+| `label` | `String?` | `null` | Text instead of a count |
+| `maxCount` | `int` | `99` | Above this renders `99+` |
+| `isVisible` | `bool` | `true` | Hides the badge entirely |
+| `alignment` / `offset` | — | top-right | Anchor position |
+| `animate` | `bool` | `true` | Scale transition on appear and on change |
+
+---
+
+### `AlertBannerWidgetx`
+
+An inline success / error / warning / info banner, for the cases a snackbar is wrong: a validation summary above a form, an account-status notice, a warning that must stay on screen until it is resolved.
+
+```dart
+AlertBannerWidgetx.error(
+  title: 'Payment failed',
+  message: 'Your card was declined. Try a different payment method.',
+  onClose: () => setState(() => showError = false),
+)
+
+AlertBannerWidgetx.success(message: 'Profile updated.')
+
+AlertBannerWidgetx.warning(
+  message: 'Your session expires in 2 minutes.',
+  actionText: 'Extend',
+  onAction: extendSession,
+)
+```
+
+Named constructors `.success`, `.error`, `.warning`, `.info` select the colour and icon. `isFilled: true` swaps the tinted-with-accent-bar style for a solid one. Marked as a `liveRegion` for screen readers.
+
+---
+
+### `TimelineWidgetx`
+
+A vertical timeline for order tracking, activity feeds, and audit trails — the vertical counterpart to `StepperIndicatorWidgetx`.
+
+```dart
+TimelineWidgetx(
+  items: [
+    TimelineItemX(title: 'Order placed',      timestamp: '09:02 AM', state: TimelineItemStateX.completed),
+    TimelineItemX(title: 'Packed',            timestamp: '09:40 AM', state: TimelineItemStateX.completed),
+    TimelineItemX(title: 'Out for delivery',  timestamp: '10:24 AM', state: TimelineItemStateX.active,
+                  subtitle: 'Courier: Ali Raza'),
+    TimelineItemX(title: 'Delivered'),
+  ],
+)
+```
+
+`TimelineItemX` carries `title`, `subtitle`, `timestamp`, `state`, `icon`, `color`, a `content` widget, and `onTap`. `TimelineItemStateX` (`completed`, `active`, `pending`) drives the node and connector styling: completed nodes show a check, the active node is ringed and shadowed, pending steps are muted. Set `timestampWidth` for a leading timestamp column, or `dashPendingConnector` for dashed future connectors.
+
+---
+
+### `ChipsFilterWidgetx<T>`
+
+A row or wrap of selectable filter chips, in single- or multi-select mode.
+
+```dart
+// Multi-select, wrapping onto several lines.
+ChipsFilterWidgetx<String>(
+  items: const ['Pizza', 'Burgers', 'Biryani', 'Desserts'],
+  selected: activeFilters,
+  onChanged: (values) => setState(() => activeFilters = values),
+)
+
+// Single-select, scrolling horizontally on one line.
+ChipsFilterWidgetx<Category>(
+  items: categories,
+  labelBuilder: (c) => c.name,
+  countBuilder: (c) => c.productCount,
+  selected: selectedCategory == null ? [] : [selectedCategory!],
+  mode: ChipsSelectionModeX.single,
+  isScrollable: true,
+  onChanged: (values) => setState(() => selectedCategory = values.firstOrNull),
+)
+```
+
+`onChanged` always emits a **new** list rather than mutating the one it was given, so immutable state stays safe. In single mode, `allowEmpty` decides whether re-tapping the selected chip clears it.
+
+---
+
+### `SegmentedControlWidgetx<T>`
+
+A two- or three-way toggle with an animated sliding indicator — cleaner than a `TabBar` for a small, fixed set of mutually exclusive choices.
+
+```dart
+SegmentedControlWidgetx<OrderFilter>(
+  items: OrderFilter.values,
+  value: filter,
+  labelBuilder: (f) => f.name.capitalizeFirstLetter(),
+  onChanged: (f) => setState(() => filter = f),
+)
+
+// Icon-only layout switcher.
+SegmentedControlWidgetx<bool>(
+  items: const [false, true],
+  value: isGrid,
+  labelBuilder: (v) => v ? 'Grid' : 'List',
+  iconBuilder: (v) => v ? Icons.grid_view_rounded : Icons.view_list_rounded,
+  showLabels: false,
+  onChanged: (v) => setState(() => isGrid = v),
+)
+```
+
+Tapping the already-selected segment does not fire `onChanged`. A `value` not present in `items` simply highlights nothing rather than throwing.
+
+---
+
+### `NetworkImageWidgetx`
+
+`Image.network` with the four things it leaves to you: a shimmering placeholder, an error fallback, rounded corners, and a fade-in. A null or blank `url` goes straight to the error state, so a missing avatar or product photo needs no null check at the call site.
+
+```dart
+NetworkImageWidgetx(
+  url: product.imageUrl,
+  width: double.infinity,
+  height: 180,
+  borderRadius: 12,
+)
+
+// Circular avatar with initials as the fallback.
+NetworkImageWidgetx.circle(
+  url: user.avatarUrl,
+  size: 48,
+  errorWidget: Text(user.initials),
+)
+```
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `url` | `String?` | required | Null or blank renders `errorWidget` |
+| `placeholder` | `Widget?` | `SkeletonLoaderWidgetx` | Shown while downloading |
+| `errorWidget` | `Widget?` | broken-image icon | Shown on failure |
+| `showProgress` | `bool` | `false` | Determinate spinner when the server reports a size |
+| `borderRadius` / `isCircle` | — | `0` / `false` | Clipping |
+| `heroTag` | `Object?` | `null` | Wraps in a `Hero` |
+| `headers` | `Map<String, String>?` | `null` | Auth tokens |
+
+---
+
+### `ScrollToTopWidgetx`
+
+Wraps a scrollable and floats a "back to top" button over it once the user passes `threshold`. The same controller must be attached to both.
+
+```dart
+final controller = ScrollController();
+
+ScrollToTopWidgetx(
+  controller: controller,
+  threshold: 300,
+  child: ListView.builder(
+    controller: controller,
+    itemCount: posts.length,
+    itemBuilder: (_, i) => PostCard(posts[i]),
+  ),
+)
+```
+
+Rebuilds only when the button crosses the threshold, not on every scroll notification. Set `label` for an extended FAB, or `button` to replace the button entirely while keeping the show/hide behaviour. The controller belongs to the caller — only the listener is removed on dispose.
+
+---
+
+### `AnimatedCounterWidgetx`
+
+A number that animates from its previous value to its new one — stat tiles, cart totals, live scores, price changes.
+
+```dart
+AnimatedCounterWidgetx(value: order.total, prefix: 'Rs. ', decimals: 2)
+
+AnimatedCounterWidgetx(
+  value: followers,
+  useThousandsSeparator: true,
+  textStyle: context.textTheme.headlineMedium,
+)
+
+// Plug in intl, or any formatting you like.
+AnimatedCounterWidgetx(
+  value: revenue,
+  formatter: (v) => NumberFormat.compactCurrency(symbol: 'Rs. ').format(v),
+)
+```
+
+`useThousandsSeparator` is sign- and fraction-aware — `-12345.5` with `decimals: 2` becomes `-12,345.50`. `initialValue` controls whether the first build counts up from zero or renders the final number immediately. `format()` is public, so the formatting can be unit-tested without pumping a widget.
+
+---
+
+### `CircularProgressWidgetx`
+
+A circular progress ring with a label in the middle. Unlike `CircularProgressIndicator` it animates between values, supports a gradient sweep, and renders its own percentage label.
+
+```dart
+CircularProgressWidgetx(value: 0.72, size: 120)
+
+CircularProgressWidgetx(
+  value: uploaded / total,
+  size: 90,
+  strokeWidth: 8,
+  gradientColors: const [Colors.orange, Colors.pink],
+  center: Text('${uploaded}MB'),
+)
+
+// Indeterminate, while the total is still unknown.
+CircularProgressWidgetx(value: null, size: 60)
+```
+
+`startAngle` is measured in degrees clockwise from twelve o'clock. `caption` adds a line under the percentage; `center` replaces the label entirely. A null `value` falls back to an indeterminate spinner.
+
+---
+
+### `ConnectivityBannerWidgetx`
+
+Slides an offline banner over the app when connectivity drops, and a brief "Back online" confirmation when it returns. Wrap it once around the app rather than per screen:
+
+```dart
+MaterialApp(
+  builder: (context, child) => ConnectivityBannerWidgetx(child: child!),
+  home: const HomePage(),
+)
+```
+
+`connectivity_plus` reports whether a network *interface* is up, not whether the internet is actually reachable — a captive-portal wifi still counts as connected. Pass `verifyConnection` to make the banner depend on a real request:
+
+```dart
+ConnectivityBannerWidgetx(
+  verifyConnection: () async {
+    try {
+      final result = await InternetAddress.lookup('example.com');
+      return result.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  },
+  child: const HomePage(),
+)
+```
+
+`statusStream` overrides the source entirely — useful in tests, and for apps that already track connection state themselves. The banner leaves the widget tree once it has slid away, so a hidden banner is never left rendering text where screen readers would still reach it.
+
+---
+
+### `ImagePickerSheetWidgetx`
+
+The "Take a photo / Choose from gallery / Remove" sheet, with the picking already wired to `image_picker`.
+
+```dart
+// One call: sheet, picker, file.
+final file = await ImagePickerSheetWidgetx.pick(
+  context,
+  showRemove: avatarPath != null,
+  imageQuality: 70,
+  maxWidth: 1080,
+  onRemove: removeAvatar,
+);
+if (file != null) setState(() => avatarPath = file.path);
+
+// Stop after the choice — for a cropper in between, or a custom camera.
+final source = await ImagePickerSheetWidgetx.pickSource(context);
+
+// Multiple gallery images.
+final files = await ImagePickerSheetWidgetx.pickMultiple(context, limit: 5);
+```
+
+A denied permission or a plugin failure surfaces as `null` (or through `onError`) rather than crashing the calling screen. `picker:` accepts an injected `ImagePicker` for tests.
+
+> **iOS setup:** add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to `Info.plist`.
+
+---
+
 ## Utils
+
+### `PaginatorX<T>` — Pagination controller
+
+The engine behind `PaginatedListWidgetx`, usable on its own with any layout — a `SliverList`, a `PageView`, your own custom scroll view — and with any state management, since it is just a `ChangeNotifier`.
+
+```dart
+final paginator = PaginatorX<User>(
+  pageSize: 20,
+  itemId: (u) => u.id,
+  timeout: const Duration(seconds: 15),
+  fetchPage: (page, cursor) async {
+    final res = await api.users(page: page, limit: 20);
+    return PageX(items: res.users, hasMore: res.hasNext);
+  },
+);
+
+// Or, for an API that just returns a list:
+final simple = PaginatorX<User>.simple(
+  fetch: (page) => api.getUsers(page: page, limit: 20),
+);
+
+ListenableBuilder(
+  listenable: paginator,
+  builder: (context, _) => MyCustomLayout(items: paginator.items),
+)
+```
+
+#### Loading
+
+| Member | Description |
+|---|---|
+| `loadFirstPage({force})` | Loads page one; a no-op once loading has started |
+| `loadNextPage()` | Loads the next page; a no-op unless `canLoadMore` |
+| `refresh()` | Reloads from page one, keeping items visible until the new ones land |
+| `retry()` | Repeats whichever request failed last and clears `isPaused` |
+| `pause()` / `resume({loadMore})` | Suspend and restore auto-loading |
+| `reset({notify})` | Clears items and all page/cursor state |
+| `updateFetcher(fetcher, {reload})` | Swap the query — search terms, filters |
+
+#### State
+
+| Member | Type | Description |
+|---|---|---|
+| `items` | `UnmodifiableListView<T>` | Live view of every loaded item |
+| `itemCount` | `int` | Number of loaded items |
+| `status` | `PaginationStatus` | `initial`, `loadingFirst`, `refreshing`, `loadingMore`, `loaded`, `empty`, `firstPageError`, `loadMoreError` |
+| `isLoading` / `isLoadingFirstPage` / `isLoadingMore` / `isRefreshing` | `bool` | In-flight flags |
+| `hasError` / `error` / `stackTrace` | `bool` / `Object?` / `StackTrace?` | Last failure |
+| `isEmpty` | `bool` | A load succeeded and produced nothing |
+| `hasMore` / `canLoadMore` | `bool` | End-of-list, and whether a request is allowed right now |
+| `nextPage` / `cursor` / `totalCount` | `int` / `String?` / `int?` | Request bookkeeping |
+| `isPaused` | `bool` | Auto-loading suspended by `pause()` |
+
+#### Local mutations
+
+Reflect an optimistic create, edit, or delete without refetching the list:
+
+```dart
+paginator.addItem(user);
+paginator.addItems(users);
+paginator.insertItem(0, user);
+paginator.removeAt(3);
+paginator.removeWhere((u) => u.id == deletedId);
+paginator.replaceAt(2, updatedUser);
+paginator.updateWhere((u) => u.id == id, (u) => u.copyWith(liked: true));
+paginator.setItems(newList);
+paginator.clearItems();
+```
+
+#### What it guards for you
+
+- **Re-entrancy** — a scroll listener firing 60×/second cannot queue duplicate requests for the same page.
+- **Stale responses** — a `refresh()` pre-empts an in-flight page load, and the older response is discarded when it lands instead of appending to freshly refreshed data.
+- **Post-dispose responses** — a request that outlives the screen never notifies a disposed controller.
+- **Duplicate rows** — set `itemId` and rows that shift on the server between requests are dropped instead of appearing twice.
+- **A lying `hasMore`** — an empty page, or one that adds nothing new and returns no fresh cursor, ends the list rather than looping forever.
+- **Short first pages** — `PaginatedListWidgetx` keeps loading until the viewport is actually scrollable, so a tall screen with a small `pageSize` doesn't strand the list.
+
+### `PageX<T>`
+
+One page of results.
+
+| Field | Type | Description |
+|---|---|---|
+| `items` | `List<T>` | The page's items |
+| `hasMore` | `bool?` | Whether more pages exist; inferred from `pageSize` when `null` |
+| `nextCursor` | `String?` | Cursor for the following page |
+| `totalCount` | `int?` | Server-reported total, when available |
+
+`PageX.empty()` returns an empty, final page — a handy early return in a fetcher.
+
+---
 
 ### `FormX<K>` — Generic form controller
 
@@ -1306,6 +2241,70 @@ defaultDialogInfoColorGlobal     = Colors.green;
 defaultDialogBorderRadiusGlobal  = BorderRadius.circular(16);
 ```
 
+### Global Pagination Config
+
+Set these once in `main()` and every paginated list in the app inherits them — including the copy, so a localised app sets its strings in one place:
+
+```dart
+defaultPaginationPageSizeGlobal          = 25;
+defaultPaginationPrefetchThresholdGlobal = 400;
+defaultPaginationErrorTitleGlobal        = 'Kuch ghalat ho gaya';
+defaultPaginationErrorMessageGlobal      = 'Data load nahi ho saka. Dobara koshish karein.';
+defaultPaginationTimeoutMessageGlobal    = 'Server ka jawab dair se aaya.';
+defaultPaginationRetryTextGlobal         = 'Dobara';
+defaultPaginationCancelTextGlobal        = 'Cancel';
+defaultPaginationEmptyTitleGlobal        = 'Kuch nahi mila';
+```
+
+---
+
+### Global Button, Field & Sheet Config
+
+```dart
+defaultButtonBorderRadiusGlobal   = 12;
+defaultButtonHeightSmallGlobal    = 38;
+defaultButtonHeightMediumGlobal   = 48;
+defaultButtonHeightLargeGlobal    = 56;
+
+defaultFieldBorderRadiusGlobal        = 12;
+defaultFieldRequiredMessageGlobal     = 'Yeh field zaroori hai';
+defaultFieldInvalidEmailMessageGlobal = 'Sahi email darj karein';
+defaultFieldInvalidPhoneMessageGlobal = 'Sahi phone number darj karein';
+
+defaultSheetBorderRadiusGlobal = 24;
+defaultSheetCancelTextGlobal   = 'Cancel';
+```
+
+---
+
+### Global Alert & Async Config
+
+```dart
+defaultAlertSuccessColorGlobal = const Color(0xFF2E7D32);
+defaultAlertErrorColorGlobal   = const Color(0xFFC62828);
+defaultAlertWarningColorGlobal = const Color(0xFFEF6C00);
+defaultAlertInfoColorGlobal    = const Color(0xFF1565C0);
+
+defaultAsyncErrorTitleGlobal   = 'Kuch ghalat ho gaya';
+defaultAsyncErrorMessageGlobal = 'Data load nahi ho saka. Dobara koshish karein.';
+defaultAsyncRetryTextGlobal    = 'Dobara';
+defaultAsyncEmptyTitleGlobal   = 'Kuch nahi mila';
+```
+
+---
+
+### Global Connectivity & Image Picker Config
+
+```dart
+defaultOfflineMessageGlobal = 'Internet band hai';
+defaultOnlineMessageGlobal  = 'Internet wapas aa gaya';
+
+defaultImagePickerTitleGlobal       = 'Tasveer chunein';
+defaultImagePickerCameraTextGlobal  = 'Tasveer lein';
+defaultImagePickerGalleryTextGlobal = 'Gallery se chunein';
+defaultImagePickerRemoveTextGlobal  = 'Tasveer hatayein';
+```
+
 ---
 
 ## Requirements
@@ -1314,3 +2313,7 @@ defaultDialogBorderRadiusGlobal  = BorderRadius.circular(16);
 - Flutter `>=1.17.0`
 - [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^9.0.0` — used by `StringExtension.toastString()`
 - [`flutter_auto_size_text`](https://pub.dev/packages/flutter_auto_size_text) `^5.0.0` — used by `VxTextBuilder`
+- [`connectivity_plus`](https://pub.dev/packages/connectivity_plus) `^7.3.1` — used by `ConnectivityBannerWidgetx`
+- [`image_picker`](https://pub.dev/packages/image_picker) `^1.2.3` — used by `ImagePickerSheetWidgetx`
+
+`connectivity_plus` and `image_picker` are **platform plugins**, so every app depending on `baaba_extensions` inherits them even if it never uses those two widgets. Apps that use `ImagePickerSheetWidgetx` must also add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to their iOS `Info.plist`.

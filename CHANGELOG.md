@@ -1,3 +1,232 @@
+## 0.7.0
+
+### Added — Widgets
+
+#### `ButtonWidgetx` (`widgets/button_widgetx.dart`)
+- A button that understands async work: when `onPressed` returns a `Future` the button disables itself, swaps its label for a spinner, and restores itself once the future settles — no `bool _isLoading` + `setState` boilerplate, and a second tap cannot fire while the first is still running.
+- Five variants via `ButtonVariantX` — `filled`, `tonal`, `outlined`, `text`, `danger` — each with a named constructor (`ButtonWidgetx.danger(...)`).
+- Three sizes via `ButtonSizeX` (`small`, `medium`, `large`), driving height, font size, icon size, and padding.
+- `isLoading` accepts an external flag, so the loading state can live in Bloc/Provider/Riverpod instead.
+- `onError` receives a failure from the returned future; when it is null the error is rethrown after the loading state has cleared, so it still reaches your error handler.
+- `icon`, `trailingIcon`, `child`, `expand`, `isEnabled`, `loadingIndicator`, `margin`, `elevation`, plus full colour/shape overrides.
+- A future landing after the button is disposed does not throw.
+- Wrapped in `Semantics` with `button`, `enabled`, and a label.
+
+#### `TextFieldWidgetx<K>` (`widgets/text_field_widgetx.dart`)
+- The form field that pairs with `FormX` — pass `form:` and `fieldKey:` and the controller, focus node, and next-field focus traversal (`nextField:`) are wired for you. Works standalone with `controller:` / `focusNode:` too.
+- `FieldTypeX` presets (`text`, `email`, `password`, `phone`, `number`, `multiline`, `search`, `url`) select the keyboard type, autofill hints, prefix icon, input formatters, and the validation pattern from `Patterns` in one parameter.
+- `FieldTypeX.password` obscures the value and renders a visibility toggle.
+- Built-in validation: `isRequired` (appends `*` to the label), `minLength`, `validationPattern` + `validationMessage`, and a `validator` callback for anything else. An optional field left blank skips the pattern check.
+- Only the controller and focus node the widget itself created are disposed — a `FormX` or a caller-supplied controller outlives the field.
+- Full decoration control: `prefix`/`suffix`, `fillColor`, `borderColor`, `focusedBorderColor`, `borderRadius`, `contentPadding`, `helperText`, external `errorText`, counter visibility, and more.
+
+#### `AsyncBuilderWidgetx<T>` (`widgets/async_builder_widgetx.dart`)
+- `FutureBuilder` with the loading, empty, and error states already wired — what `PaginatedListWidgetx` does for paginated lists, for every single-shot fetch.
+- Takes a *factory* (`future: () => api.get()`), so a rebuild never refires the request and `retry()` can re-run it. `reloadOn:` refetches when an id, filter, or query changes.
+- Default empty detection covers `null`, empty `Iterable`, empty `Map`, and blank `String`; override with `isEmpty`.
+- Defaults reuse the package's own states — a centered spinner, and `EmptyStateWidgetx` for both empty and error (with a working retry action). Every state is overridable via `loadingBuilder`, `emptyBuilder`, `errorBuilder`.
+- `AsyncBuilderWidgetx.stream(...)` watches a `Stream` instead; no retry action is offered since a stream cannot be re-run.
+- `keepPreviousData` holds the last result on screen through a retry or reload, `enableRefresh` adds pull-to-refresh, `onError` / `onData` fire once per distinct event after the frame, and `errorMessageBuilder` has a distinct default for `TimeoutException`.
+- State is exposed as `AsyncBuilderWidgetxState<T>` so a `GlobalKey` can call `retry()`.
+
+#### `QuantityStepperWidgetx` (`widgets/quantity_stepper_widgetx.dart`)
+- The `− n +` cart control: `min`, `max`, `step`, and clamping handled, with `onChanged` reporting only in-range values.
+- `onRemove` turns the minus button into a delete icon at `min` — the usual "decrement to remove" cart behaviour. Without it the minus button is simply disabled at `min`.
+- Holding a button repeats it (`enableLongPressRepeat`), tracked internally so it keeps counting without waiting for the parent to rebuild. Repeat is deliberately not wired to the destructive remove action.
+- `allowManualInput` lets the user type a quantity, committed on submit or on focus loss.
+- `isLoading` swaps the number for a spinner during an in-flight cart update.
+
+#### `BadgeWidgetx` (`widgets/badge_widgetx.dart`)
+- Count or dot badge anchored to any child. Hides at zero (unless `showZero`), caps at `maxCount` rendering `99+`.
+- `BadgeWidgetx.dot(...)` for a plain status dot; `label` for text badges like `NEW`.
+- Animates in, out, and on value change via `AnimatedSwitcher` + `ScaleTransition`.
+- `alignment`, `offset`, `borderColor`/`borderWidth` ring, and full colour control.
+
+#### `AlertBannerWidgetx` (`widgets/alert_banner_widgetx.dart`)
+- Inline success / error / warning / info banner for the cases a snackbar is wrong: a validation summary, an account-status notice, a warning that must stay until resolved.
+- Named constructors `.success`, `.error`, `.warning`, `.info`, each selecting its colour and icon from the new global config.
+- Optional `title`, close button (`onClose`), and an inline action (`actionText` + `onAction`).
+- Two styles: tinted with a left accent bar (default) or `isFilled` solid.
+- Marked as a `liveRegion` for screen readers.
+
+#### `TimelineWidgetx` (`widgets/timeline_widgetx.dart`)
+- Vertical timeline for order tracking, activity feeds, and audit trails, built from `TimelineItemX` entries.
+- `TimelineItemStateX` (`completed`, `active`, `pending`) drives node and connector styling — completed nodes show a check, the active node is ringed and shadowed, pending steps are muted.
+- Optional leading timestamp column (`timestampWidth`), dashed pending connectors, per-entry `content` widget, per-entry `onTap`, and a full `itemBuilder` override.
+
+#### `ChipsFilterWidgetx<T>` (`widgets/chips_filter_widgetx.dart`)
+- Filter chip group in `ChipsSelectionModeX.single` or `.multiple`, wrapping onto several lines or scrolling horizontally on one (`isScrollable`).
+- Emits a new list rather than mutating the one it was given, so immutable state stays safe.
+- `allowEmpty` decides whether re-tapping the selected chip clears it in single mode.
+- `labelBuilder`, `iconBuilder`, `countBuilder` for `Pizza (12)`-style counts, and full colour/shape control.
+
+#### `SegmentedControlWidgetx<T>` (`widgets/segmented_control_widgetx.dart`)
+- Two- or three-way toggle with an animated sliding indicator — cleaner than a `TabBar` for a small fixed set of choices.
+- `labelBuilder` and `iconBuilder`; `showLabels: false` gives an icon-only control.
+- Tapping the already-selected segment does not fire `onChanged`; a value not present in `items` simply highlights nothing instead of throwing.
+- `expand` fills the width with equal segments, or sizes to content.
+
+#### `NetworkImageWidgetx` (`widgets/network_image_widgetx.dart`)
+- `Image.network` with the four things it leaves to you: a shimmering `SkeletonLoaderWidgetx` placeholder, an error fallback, rounded corners, and a fade-in.
+- A null or blank `url` goes straight to the error state, so a missing avatar needs no null check at the call site.
+- `NetworkImageWidgetx.circle(size: ...)` for avatars; `errorWidget` for initials fallbacks.
+- `showProgress` renders a determinate spinner, staying indeterminate when the server omits `Content-Length`.
+- `heroTag`, `onTap`, `border`, `headers` (auth tokens), `cacheWidth`, and `semanticLabel`.
+
+#### `ScrollToTopWidgetx` (`widgets/scroll_to_top_widgetx.dart`)
+- Floats a "back to top" button over any scrollable once the user passes `threshold`, animating in with scale + opacity.
+- Rebuilds only when the button actually crosses the threshold, not on every scroll notification.
+- Optional `label` turns it into an extended FAB; `button` replaces it entirely while keeping the show/hide behaviour.
+- Uses the existing `ScrollxExtensions.animateToTop`. The controller belongs to the caller — only the listener is removed on dispose.
+
+#### `AnimatedCounterWidgetx` (`widgets/animated_counter_widgetx.dart`)
+- A number that animates from its previous value to its new one — stat tiles, cart totals, live scores.
+- `decimals`, `prefix`, `suffix`, and `useThousandsSeparator` (sign- and fraction-aware), or a `formatter` callback to plug in `intl`.
+- `initialValue` controls whether the first build counts up from zero or renders the final number immediately.
+- `format()` is public, so the formatting is unit-testable without pumping a widget.
+
+#### `CircularProgressWidgetx` (`widgets/circular_progress_widgetx.dart`)
+- Circular progress ring with a percentage label — dashboards, upload progress, goal rings, quiz scores.
+- Animates between values, supports a `SweepGradient` arc (`gradientColors`), rounded caps, and a configurable `startAngle` measured from twelve o'clock.
+- `center` replaces the label with any widget; `caption` adds a line under the percentage.
+- A null `value` falls back to an indeterminate spinner rather than animating a fabricated value.
+
+#### `ConnectivityBannerWidgetx` (`widgets/connectivity_banner_widgetx.dart`)
+- Slides an offline banner over the app when connectivity drops, and a brief "Back online" confirmation when it returns. Wrap it once in `MaterialApp.builder`.
+- Reads the current state on mount as well as listening for changes, so an app launched offline still shows the banner.
+- `verifyConnection` adds a reachability check on top of `connectivity_plus`, which only reports whether a network *interface* is up — a captive-portal wifi still counts as connected.
+- `statusStream` overrides the source entirely, for tests and for apps that already track connection state.
+- The banner leaves the widget tree once it has slid away, so a hidden banner is not left rendering text where screen readers would still reach it.
+- `showAtBottom`, `bannerBuilder`, `onStatusChanged`, safe-area handling, and full colour/duration control.
+
+#### `ImagePickerSheetWidgetx` (`widgets/image_picker_sheet_widgetx.dart`)
+- The "Take a photo / Choose from gallery / Remove" sheet with the picking already wired to `image_picker`, built on the new `SheetX.showActionSheet`.
+- `ImagePickerSheetWidgetx.pick(context, ...)` shows the sheet, runs the picker, and returns an `XFile?`, forwarding `maxWidth`, `maxHeight`, `imageQuality`, and `preferredCameraDevice`.
+- `pickSource(context, ...)` stops after the choice, for callers that crop in between or use a custom camera.
+- `pickMultiple(context, ...)` returns every gallery selection, with `limit` support.
+- A denied permission or a plugin failure surfaces as `null` (or through `onError`) rather than crashing the calling screen. `picker:` accepts an injected `ImagePicker` for tests.
+
+### Added — Extensions
+
+#### `SheetX` — on `BuildContext` (`sheetx_extensions.dart`)
+- The bottom-sheet counterpart to `DialogX`, since sheets are more common than dialogs on mobile.
+- `showSheet<T>(...)` — rounded modal sheet with a drag handle, safe-area padding, keyboard avoidance, a `maxHeightFactor` cap, and content that scrolls when tall. Returns the value the sheet was popped with.
+- `showScrollableSheet<T>(...)` — a `DraggableScrollableSheet` the user can drag between `minSize` and `maxSize`, handing a `ScrollController` to the builder.
+- `showActionSheet<T>(...)` — a list of `SheetActionX<T>` rows returning the value of the one that was tapped; supports subtitles, leading widgets, destructive rows, disabled rows, and a cancel row. Rows pop before firing `onTap`, so the callback can safely push a route or open another sheet.
+- New `SheetActionX<T>` model class.
+
+
+#### `ListX` — on `Iterable<T>?` (`listx_extensions.dart`)
+- Emptiness, mirroring `StringExtension` — `isEmptyOrNull`, `isNotEmptyOrNull`, `lengthOrZero`.
+- `firstOrNull` / `lastOrNull` on a **nullable** receiver, so no `?.` is needed. The SDK's own `Iterable.firstOrNull` still wins on a non-null receiver, so nothing is shadowed.
+- Keying — `associateBy` (index by id), `associateWith` (derive key and value), `groupCountBy` (counts without collecting the elements), `distinctBy` (dedupe model objects that lack value equality, which plain `distinct()` cannot).
+- Lookups that never throw — `lastWhereOrNull`, `singleWhereOrNull` (null for none *or* many), `indexWhereOrNull` (null instead of `-1`, so it composes with `??`).
+- Sorting, all returning copies — `sortedByDescending`, `sortedWith(comparator)`, `sortedByMany([...])` for tie-breaking on successive keys, and `isSortedBy`.
+- Mapping — `mapNotNull` (map and drop nulls in one pass), `whereNotNullBy` (keep elements whose field is set), `joinToString`.
+- Set maths, order-preserving — `containsAny`, `containsAll`, `except`, `intersect`.
+- `pageAt(page, size:)` for client-side paging, 1-based to match `PaginatorX.firstPage`; an out-of-range page yields an empty list rather than throwing.
+- `shuffled([Random])` (a copy, unlike `List.shuffle`) and `randomOrNull([Random])`, both accepting a seed for reproducible tests.
+
+#### `IterableNullableX` — on `Iterable<T?>?` (`listx_extensions.dart`)
+- `whereNotNull()` and `firstNotNull`.
+
+#### `IterableAsyncX` — on `Iterable<T>?` (`listx_extensions.dart`)
+- `mapAsync` and `forEachAsync` — strictly sequential, for writes that must not overlap or a rate-limited API.
+- `mapParallel(transform, {concurrency})` — concurrent with results in the original order, and an optional cap implemented as a worker pool. Firing an unbounded `Future.wait` at a server is a common cause of timeouts, so the cap is the recommended path for network work.
+- `firstWhereAsync` — short-circuits, so elements after the first match are never tested.
+
+#### `ListAccessX` — on `List<T>` (`listx_extensions.dart`)
+- `getOrNull`, `getOrElse`, and `safeSublist` — indexing that clamps instead of throwing.
+
+#### `ListMutationX` — on `List<T>` (`listx_extensions.dart`)
+- `toggle` (add if absent, remove if present — the whole of a multi-select filter's logic), `moveItem` (what `ReorderableListView.onReorder` hands you), `addIf`, `addAllIf`, `removeWhereCounted`.
+
+#### `ListTransformX` — on `List<T>` (`listx_extensions.dart`)
+- Copy-on-write edits for immutable state — `replaceWhere`, `upsert(item, by:)` (update the match or append), `rotate` (wrapping in both directions), `diff` (returns `(added:, removed:)`), and `intersperse`.
+- `intersperse` is deliberately not named `separatedBy`: on a homogeneous widget list such as `List<Text>` both this extension and `ListxWidgetExtensions` apply, and the generic one would win and demand a `Text` separator.
+
+#### `ListxWidgetExtensions` — on `List<Widget>` (`listx_widgets_extensions.dart`)
+- New layout builders — `toWrap`, `toGrid`, `toPageView`, `toIndexedStack`, `toSliverList`, `toSliverGrid`, `toScrollableRow`, `toScrollableColumn`.
+- New list-to-list helpers that chain into any builder — `separatedBy(Widget)`, `withSpacing(gap, {axis})`, `withDividers(...)`, `expanded({flex})`, `flexible({flex, fit})`, `paddedAll`, `paddedSymmetric`.
+- Every builder now returns its concrete type (`Row`, `Column`, `Stack`, `ListView`, `Wrap`, …) instead of a widened `Widget`, per the package's own "return the most specific type" rule. Returning a subtype is source-compatible, so existing call sites are unaffected.
+- Doc comments added to the previously undocumented members, and the unused `<E>` type parameter on the extension removed.
+
+### Added — Utils
+
+- New enums in `utils/enums.dart`: `ButtonVariantX`, `ButtonSizeX`, `FieldTypeX`, `AlertTypeX`, `TimelineItemStateX`, `ChipsSelectionModeX`, `ImagePickerSourceX`.
+- New globals in `utils/default_configs.dart`:
+  - Button — `defaultButtonBorderRadiusGlobal`, `defaultButtonHeightSmallGlobal`, `defaultButtonHeightMediumGlobal`, `defaultButtonHeightLargeGlobal`.
+  - Text field — `defaultFieldBorderRadiusGlobal`, `defaultFieldRequiredMessageGlobal`, `defaultFieldInvalidEmailMessageGlobal`, `defaultFieldInvalidPhoneMessageGlobal`.
+  - Sheet — `defaultSheetBorderRadiusGlobal`, `defaultSheetCancelTextGlobal`.
+  - Alert — `defaultAlertSuccessColorGlobal`, `defaultAlertErrorColorGlobal`, `defaultAlertWarningColorGlobal`, `defaultAlertInfoColorGlobal`.
+  - Async — `defaultAsyncErrorTitleGlobal`, `defaultAsyncErrorMessageGlobal`, `defaultAsyncRetryTextGlobal`, `defaultAsyncEmptyTitleGlobal`.
+  - Connectivity — `defaultOfflineMessageGlobal`, `defaultOnlineMessageGlobal`.
+  - Image picker — `defaultImagePickerTitleGlobal`, `defaultImagePickerCameraTextGlobal`, `defaultImagePickerGalleryTextGlobal`, `defaultImagePickerRemoveTextGlobal`.
+
+### Dependencies
+
+- **Added `connectivity_plus: ^7.3.1`** — required by `ConnectivityBannerWidgetx`.
+- **Added `image_picker: ^1.2.3`** — required by `ImagePickerSheetWidgetx`.
+- Both are plugin dependencies inherited by every consumer of this package. Apps using `ImagePickerSheetWidgetx` must add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to `Info.plist` on iOS.
+
+### Fixed
+
+- **`ListxWidgetExtensions.toList()` was unreachable.** `Iterable.toList` is an instance method and instance members always beat extensions, so `widgets.toList()` has always returned a plain `List<Widget>` copy rather than a `ListView` — the extension member could never be called. It has been removed, and `toListView()` now covers both modes: children by default, `ListView.builder` when an `itemBuilder` is passed. Existing `toListView(itemBuilder: ...)` calls are unchanged, and code calling `.toList()` keeps the `Iterable.toList` behaviour it was already getting.
+- `ChipsFilterWidgetx` now uses the new `ListMutationX.toggle` instead of its own inline add/remove branch, so the selection logic lives in one place.
+
+### Testing
+
+- 157 new tests covering all 16 widget additions and the list-extension additions, including the async-button re-entrancy guard, a future landing after the button unmounts, `FormX` wiring and focus traversal, controller-ownership on dispose, the async builder not refiring on rebuild, `reloadOn` refetching, retry-after-failure recovery, sheet return values and dismissal, stepper clamping and the remove threshold, chip lists not being mutated in place, badge capping, and the connectivity banner's transitions.
+
+---
+
+## 0.6.0
+
+### Added — Utils
+
+#### `PaginatorX<T>` — Pagination controller (`utils/paginatorx.dart`)
+- State-management-agnostic `ChangeNotifier` that owns the accumulated items, the page/cursor bookkeeping, and the loading/error state. Works with `ListenableBuilder`, Provider, Bloc, or plain `setState`, and with any layout — not just `PaginatedListWidgetx`.
+- Two constructors: `PaginatorX(fetchPage: (page, cursor) => Future<PageX<T>>)` for APIs that report `hasMore` or paginate by cursor, and `PaginatorX.simple(fetch: (page) => Future<List<T>>)` where `hasMore` is inferred from `pageSize`.
+- Loading API — `loadFirstPage({force})`, `loadNextPage()`, `refresh()`, `retry()`, `pause()`, `resume({loadMore})`, `reset({notify})`, `updateFetcher(fetcher, {reload})`.
+- State API — `items` (a live `UnmodifiableListView`), `itemCount`, `status`, `isLoading`, `isLoadingFirstPage`, `isLoadingMore`, `isRefreshing`, `hasError`, `error`, `stackTrace`, `isEmpty`, `hasMore`, `canLoadMore`, `nextPage`, `cursor`, `totalCount`, `isPaused`.
+- Local mutations, so an optimistic create/edit/delete needs no refetch — `addItem`, `addItems`, `insertItem`, `removeAt`, `removeWhere`, `replaceAt`, `updateWhere`, `setItems`, `clearItems`.
+- `itemId` — optional stable identity that drops duplicate rows arriving across pages, common when data shifts on the server between requests.
+- `timeout` — optional per-request timeout; a timed-out page fails through the normal retry path.
+- Race guards: re-entrant page loads are dropped, a `refresh()` pre-empts an in-flight load and the superseded response is discarded rather than appended, responses landing after `dispose()` never notify, and a server that claims `hasMore` while returning an empty (or entirely duplicate) page ends the list instead of looping forever.
+
+#### `PageX<T>` (`utils/paginatorx.dart`)
+- Page result carrying `items`, optional `hasMore`, `nextCursor`, and `totalCount`, plus a `PageX.empty()` factory.
+
+### Added — Widgets
+
+#### `PaginatedListWidgetx<T>` (`widgets/paginated_list_widgetx.dart`)
+- Plug-and-play infinite-scrolling list or grid: pass `fetchItems` (or `fetchPage`, or an existing `controller`) plus `itemBuilder` and every state is already wired.
+- Dual prefetch trigger — the next page is requested when the scroll position comes within `prefetchThreshold` pixels of the end, **or** when one of the last `prefetchItemCount` items is built. The second trigger keeps a first page too short to fill the viewport from stranding the list, capped by `maxAutoFillPages`.
+- Built-in states, each overridable: `loadingBuilder` (defaults to `SkeletonListWidgetx`), `emptyBuilder` and `errorBuilder` (default to `EmptyStateWidgetx`), `loadMoreBuilder` (spinner footer), `loadMoreErrorBuilder` (inline retry footer), and `endBuilder` for the end of the list.
+- Error handling — an inline retry is always available; `errorMode` decides whether a Retry / Cancel dialog appears on top of it. `PaginationErrorMode.inline` (default), `.dialog`, or `.dialogOnFirstPage`. The dialog reuses `DialogX.showConfirmDialog`; Cancel pauses auto-loading so scrolling does not re-fire the failed request, and it will not reappear for the same failure.
+- Pull-to-refresh via `enableRefresh` (on by default), working on the empty and error states too, with an optional `onRefresh` hook.
+- `gridDelegate` renders a paginated grid; `separator` / `separatorBuilder` set the gap between rows; `header` and `footer` pin content inside the scroll view.
+- `parentScrollController` — observe an outer scroll view so prefetching still works when the list is nested with `shrinkWrap: true`.
+- `onError` for crash reporting, `errorMessageBuilder` for user-facing copy (with a distinct default message for `TimeoutException`), and `onErrorCancelled`.
+- Forwards `physics`, `shrinkWrap`, `scrollDirection`, `reverse`, `primary`, `cacheExtent`, `keyboardDismissBehavior`, `clipBehavior`, `restorationId`, `padding`, and `scrollController` to the underlying scroll view.
+- Does not throw when a page lands after the screen is unmounted, and never raises a dialog over a route the user has already left.
+
+#### `SkeletonListWidgetx` (`widgets/skeleton_list_widgetx.dart`)
+- Shimmering list placeholder built from `SkeletonLoaderWidgetx` — `rows`, `rowHeight`, `spacing`, `padding`, `showAvatar`, `avatarSize`, `borderRadius`, `baseColor`, `highlightColor`, `physics`, `shrinkWrap`, and `rowBuilder` for a fully custom row.
+
+### Added — Utils
+
+- `PaginationStatus` and `PaginationErrorMode` enums added to `utils/enums.dart`.
+- Global pagination config added to `utils/default_configs.dart` — `defaultPaginationPageSizeGlobal`, `defaultPaginationPrefetchThresholdGlobal`, `defaultPaginationErrorTitleGlobal`, `defaultPaginationErrorMessageGlobal`, `defaultPaginationTimeoutMessageGlobal`, `defaultPaginationRetryTextGlobal`, `defaultPaginationCancelTextGlobal`, `defaultPaginationEmptyTitleGlobal`.
+
+### Testing
+- 40 new tests covering `PaginatorX` and `PaginatedListWidgetx`, including the race conditions: concurrent page requests, a refresh pre-empting an in-flight load, a response landing after `dispose()`, a page landing after unmount, a server lying about `hasMore`, cross-page duplicates, timeouts, retry-after-failed-refresh, and the dialog's Retry and Cancel paths.
+
+### Documentation
+- Documented `PaginatedListWidgetx`, `SkeletonListWidgetx`, `PaginatorX`, `PageX`, and the global pagination config in `README.md`.
+
+---
+
 ## 0.5.3
 
 ### Added — Widgets

@@ -52,41 +52,24 @@ class StepperIndicatorWidgetx extends StatelessWidget {
               final connectorStepIndex = i ~/ 2;
               final isCompleted = connectorStepIndex < currentStep - 1;
               return Expanded(
-                child: Container(
-                  height: connectorHeight,
-                  color: isCompleted ? completed : inactive,
-                ),
+                child: Container(height: connectorHeight, color: isCompleted ? completed : inactive),
               );
             }
             final stepIndex = i ~/ 2 + 1;
             final isCompleted = stepIndex < currentStep;
             final isActive = stepIndex == currentStep;
-            final circleColor =
-                isCompleted || isActive ? active : inactive;
+            final circleColor = isCompleted || isActive ? active : inactive;
 
             return Container(
               width: stepSize,
               height: stepSize,
-              decoration: BoxDecoration(
-                color: circleColor,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: circleColor, shape: BoxShape.circle),
               alignment: Alignment.center,
               child: isCompleted
-                  ? Icon(
-                      Icons.check_rounded,
-                      size: stepSize * 0.5,
-                      color: Colors.white,
-                    )
+                  ? Icon(Icons.check_rounded, size: stepSize * 0.5, color: Colors.white)
                   : Text(
                       '$stepIndex',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: isActive
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: stepSize * 0.38,
-                      ),
+                      style: TextStyle(color: Colors.white, fontWeight: isActive ? FontWeight.bold : FontWeight.normal, fontSize: stepSize * 0.38),
                     ),
             );
           }),
@@ -98,8 +81,7 @@ class StepperIndicatorWidgetx extends StatelessWidget {
               if (i.isOdd) return const Expanded(child: SizedBox.shrink());
               final stepIndex = i ~/ 2;
               final isActive = stepIndex + 1 == currentStep;
-              final label =
-                  stepIndex < labels!.length ? labels![stepIndex] : '';
+              final label = stepIndex < labels!.length ? labels![stepIndex] : '';
               return SizedBox(
                 width: stepSize,
                 child: Text(
@@ -107,14 +89,8 @@ class StepperIndicatorWidgetx extends StatelessWidget {
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: isActive
-                      ? (activeLabelStyle ??
-                          TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: active,
-                          ))
-                      : (labelStyle ??
-                          TextStyle(fontSize: 10, color: inactive)),
+                      ? (activeLabelStyle ?? TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: active))
+                      : (labelStyle ?? TextStyle(fontSize: 10, color: inactive)),
                 ),
               );
             }),

@@ -30,21 +30,15 @@ class SkeletonLoaderWidgetx extends StatefulWidget {
   State<SkeletonLoaderWidgetx> createState() => _SkeletonLoaderWidgetxState();
 }
 
-class _SkeletonLoaderWidgetxState extends State<SkeletonLoaderWidgetx>
-    with SingleTickerProviderStateMixin {
+class _SkeletonLoaderWidgetxState extends State<SkeletonLoaderWidgetx> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-    _anim = Tween<double>(begin: -2, end: 2).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
+    _anim = Tween<double>(begin: -2, end: 2).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine));
   }
 
   @override
@@ -56,10 +50,8 @@ class _SkeletonLoaderWidgetxState extends State<SkeletonLoaderWidgetx>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base = widget.baseColor ??
-        (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
-    final highlight = widget.highlightColor ??
-        (isDark ? Colors.grey.shade600 : Colors.grey.shade100);
+    final base = widget.baseColor ?? (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
+    final highlight = widget.highlightColor ?? (isDark ? Colors.grey.shade600 : Colors.grey.shade100);
 
     return AnimatedBuilder(
       animation: _anim,
@@ -72,11 +64,7 @@ class _SkeletonLoaderWidgetxState extends State<SkeletonLoaderWidgetx>
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [base, highlight, base],
-            stops: [
-              (_anim.value - 1).clamp(0.0, 1.0),
-              _anim.value.clamp(0.0, 1.0),
-              (_anim.value + 1).clamp(0.0, 1.0),
-            ],
+            stops: [(_anim.value - 1).clamp(0.0, 1.0), _anim.value.clamp(0.0, 1.0), (_anim.value + 1).clamp(0.0, 1.0)],
           ),
         ),
       ),

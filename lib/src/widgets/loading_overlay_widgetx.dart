@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:baaba_extensions/baaba_extensions.dart' show LoadingOverlayMode;
+import 'package:flutter/material.dart';
 
 /// A blocking loading overlay that sits on top of [child].
 ///
@@ -90,10 +90,7 @@ class LoadingOverlayWidgetx extends StatelessWidget {
     // AbsorbPointer on child is what actually blocks interaction while loading.
     return Stack(
       children: [
-        AbsorbPointer(
-          absorbing: isLoading,
-          child: child,
-        ),
+        AbsorbPointer(absorbing: isLoading, child: child),
         Positioned.fill(
           child: AnimatedOpacity(
             opacity: isLoading ? 1.0 : 0.0,

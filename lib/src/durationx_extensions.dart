@@ -39,6 +39,5 @@ extension DurationX on Duration {
   /// Returns a new [Duration] scaled by [factor].
   ///
   /// Example: `const Duration(seconds: 10) * 2.5` → `Duration(seconds: 25)`
-  Duration operator *(double factor) =>
-      Duration(microseconds: (inMicroseconds * factor).round());
+  Duration operator *(double factor) => Duration(microseconds: (inMicroseconds * factor).round());
 }

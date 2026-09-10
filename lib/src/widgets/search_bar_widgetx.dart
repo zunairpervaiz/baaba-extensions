@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// A styled search input with a clear button and built-in debounce.
@@ -87,8 +88,7 @@ class _SearchBarWidgetxState extends State<SearchBarWidgetx> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final iconClr = widget.iconColor ??
-        theme.colorScheme.onSurface.withValues(alpha: 0.5);
+    final iconClr = widget.iconColor ?? theme.colorScheme.onSurface.withValues(alpha: 0.5);
 
     return TextField(
       controller: _controller,
@@ -104,23 +104,12 @@ class _SearchBarWidgetxState extends State<SearchBarWidgetx> {
                 onPressed: _clear,
               )
             : null,
-        contentPadding: widget.contentPadding ??
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         filled: true,
-        fillColor: widget.backgroundColor ??
-            theme.colorScheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-        ),
+        fillColor: widget.backgroundColor ?? theme.colorScheme.surfaceContainerHighest,
+        border: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(widget.borderRadius)),
+        enabledBorder: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(widget.borderRadius)),
+        focusedBorder: OutlineInputBorder(borderSide: BorderSide.none, borderRadius: BorderRadius.circular(widget.borderRadius)),
       ),
     );
   }

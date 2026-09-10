@@ -40,8 +40,7 @@ class ExpandableWidgetx extends StatefulWidget {
   State<ExpandableWidgetx> createState() => _ExpandableWidgetxState();
 }
 
-class _ExpandableWidgetxState extends State<ExpandableWidgetx>
-    with SingleTickerProviderStateMixin {
+class _ExpandableWidgetxState extends State<ExpandableWidgetx> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _heightFactor;
   late final Animation<double> _iconTurn;
@@ -51,15 +50,9 @@ class _ExpandableWidgetxState extends State<ExpandableWidgetx>
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.animationDuration,
-      value: _isExpanded ? 1.0 : 0.0,
-    );
-    _heightFactor =
-        CurvedAnimation(parent: _controller, curve: widget.curve);
-    _iconTurn =
-        Tween<double>(begin: 0.0, end: 0.5).animate(_heightFactor);
+    _controller = AnimationController(vsync: this, duration: widget.animationDuration, value: _isExpanded ? 1.0 : 0.0);
+    _heightFactor = CurvedAnimation(parent: _controller, curve: widget.curve);
+    _iconTurn = Tween<double>(begin: 0.0, end: 0.5).animate(_heightFactor);
   }
 
   @override
@@ -77,10 +70,7 @@ class _ExpandableWidgetxState extends State<ExpandableWidgetx>
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: widget.backgroundColor,
-        borderRadius: widget.borderRadius,
-      ),
+      decoration: BoxDecoration(color: widget.backgroundColor, borderRadius: widget.borderRadius),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,10 +82,7 @@ class _ExpandableWidgetxState extends State<ExpandableWidgetx>
               child: Row(
                 children: [
                   Expanded(child: widget.header),
-                  RotationTransition(
-                    turns: _iconTurn,
-                    child: const Icon(Icons.keyboard_arrow_down_rounded),
-                  ),
+                  RotationTransition(turns: _iconTurn, child: const Icon(Icons.keyboard_arrow_down_rounded)),
                 ],
               ),
             ),
@@ -103,15 +90,8 @@ class _ExpandableWidgetxState extends State<ExpandableWidgetx>
           ClipRect(
             child: AnimatedBuilder(
               animation: _heightFactor,
-              builder: (_, child) => Align(
-                alignment: Alignment.topCenter,
-                heightFactor: _heightFactor.value,
-                child: child,
-              ),
-              child: Padding(
-                padding: widget.bodyPadding ?? EdgeInsets.zero,
-                child: widget.body,
-              ),
+              builder: (_, child) => Align(alignment: Alignment.topCenter, heightFactor: _heightFactor.value, child: child),
+              child: Padding(padding: widget.bodyPadding ?? EdgeInsets.zero, child: widget.body),
             ),
           ),
         ],

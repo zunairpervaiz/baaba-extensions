@@ -132,9 +132,7 @@ class _ConfirmationDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final surfaceColor = backgroundColor ??
-        DialogTheme.of(context).backgroundColor ??
-        theme.colorScheme.surface;
+    final surfaceColor = backgroundColor ?? DialogTheme.of(context).backgroundColor ?? theme.colorScheme.surface;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -143,13 +141,7 @@ class _ConfirmationDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: surfaceColor,
           borderRadius: borderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 32, offset: const Offset(0, 12))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -158,21 +150,13 @@ class _ConfirmationDialog extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               title,
-              style: titleStyle ??
-                  theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
+              style: titleStyle ?? theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.3),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               message,
-              style: messageStyle ??
-                  theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.60),
-                    height: 1.55,
-                  ),
+              style: messageStyle ?? theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.60), height: 1.55),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -186,17 +170,11 @@ class _ConfirmationDialog extends StatelessWidget {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: cancelColor,
-                      side: BorderSide(
-                          color: cancelColor.withValues(alpha: 0.35)),
+                      side: BorderSide(color: cancelColor.withValues(alpha: 0.35)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      cancelText,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                    child: Text(cancelText, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -209,14 +187,9 @@ class _ConfirmationDialog extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: confirmColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      confirmText,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                    child: Text(confirmText, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],
@@ -256,9 +229,7 @@ class _InfoDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final surfaceColor = backgroundColor ??
-        DialogTheme.of(context).backgroundColor ??
-        theme.colorScheme.surface;
+    final surfaceColor = backgroundColor ?? DialogTheme.of(context).backgroundColor ?? theme.colorScheme.surface;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -267,13 +238,7 @@ class _InfoDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: surfaceColor,
           borderRadius: borderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 32,
-              offset: const Offset(0, 12),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 32, offset: const Offset(0, 12))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -282,21 +247,13 @@ class _InfoDialog extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               title,
-              style: titleStyle ??
-                  theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
+              style: titleStyle ?? theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.3),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               message,
-              style: messageStyle ??
-                  theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.60),
-                    height: 1.55,
-                  ),
+              style: messageStyle ?? theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.60), height: 1.55),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -310,14 +267,9 @@ class _InfoDialog extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: accentColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: Text(
-                  closeText,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                child: Text(closeText, style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
           ],
@@ -338,10 +290,7 @@ class _DialogIcon extends StatelessWidget {
     return Container(
       width: 68,
       height: 68,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
       child: Icon(icon, size: 34, color: color),
     );
   }

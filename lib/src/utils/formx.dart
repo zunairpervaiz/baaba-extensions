@@ -26,9 +26,9 @@ class FormX<K> {
   /// Creates a [FormX] from a list of keys.
   /// A [TextEditingController] and [FocusNode] are created for each key.
   FormX(List<K> keys)
-      : _controllers = {for (final k in keys) k: TextEditingController()},
-        _focusNodes = {for (final k in keys) k: FocusNode()},
-        _initialValues = {for (final k in keys) k: ''};
+    : _controllers = {for (final k in keys) k: TextEditingController()},
+      _focusNodes = {for (final k in keys) k: FocusNode()},
+      _initialValues = {for (final k in keys) k: ''};
 
   /// Returns the [TextEditingController] for the given [key].
   TextEditingController operator [](K key) {
@@ -44,23 +44,19 @@ class FormX<K> {
   }
 
   /// Returns trimmed text values for all fields as a map.
-  Map<K, String> get values =>
-      _controllers.map((k, c) => MapEntry(k, c.text.trim()));
+  Map<K, String> get values => _controllers.map((k, c) => MapEntry(k, c.text.trim()));
 
   /// Returns the trimmed value for a single [key].
   String value(K key) => this[key].text.trim();
 
   /// Returns `true` if every field is empty or contains only whitespace.
-  bool get isEmpty =>
-      _controllers.values.every((c) => c.text.trim().isEmpty);
+  bool get isEmpty => _controllers.values.every((c) => c.text.trim().isEmpty);
 
   /// Returns `true` if any field's current value differs from its initial value.
   ///
   /// The baseline resets whenever [fill] is called, so an edit-form that has
   /// been pre-populated reports `false` until the user actually changes a field.
-  bool get isDirty => _controllers.entries.any(
-        (e) => e.value.text.trim() != (_initialValues[e.key] ?? ''),
-      );
+  bool get isDirty => _controllers.entries.any((e) => e.value.text.trim() != (_initialValues[e.key] ?? ''));
 
   /// Pre-fills fields from an existing map — useful for edit screens.
   ///
@@ -109,10 +105,7 @@ class FormX<K> {
   /// if (errors.values.any((e) => e != null)) { /* show errors */ }
   /// ```
   Map<K, String?> validate(Map<K, String? Function(String)> validators) {
-    return {
-      for (final entry in validators.entries)
-        entry.key: entry.value(value(entry.key)),
-    };
+    return {for (final entry in validators.entries) entry.key: entry.value(value(entry.key))};
   }
 
   /// Clears all fields and resets the dirty-tracking baseline.

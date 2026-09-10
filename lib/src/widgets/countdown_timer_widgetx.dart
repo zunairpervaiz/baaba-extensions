@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// A countdown timer that auto-ticks every second and fires [onFinished]
@@ -24,27 +25,14 @@ class CountdownTimerWidgetx extends StatefulWidget {
   final Duration duration;
   final VoidCallback? onFinished;
   final void Function(Duration remaining)? onTick;
-  final Widget Function(
-    BuildContext context,
-    Duration remaining,
-    bool isFinished,
-  )? builder;
+  final Widget Function(BuildContext context, Duration remaining, bool isFinished)? builder;
   final TextStyle? textStyle;
   final bool autoStart;
 
-  const CountdownTimerWidgetx({
-    super.key,
-    required this.duration,
-    this.onFinished,
-    this.onTick,
-    this.builder,
-    this.textStyle,
-    this.autoStart = true,
-  });
+  const CountdownTimerWidgetx({super.key, required this.duration, this.onFinished, this.onTick, this.builder, this.textStyle, this.autoStart = true});
 
   @override
-  State<CountdownTimerWidgetx> createState() =>
-      CountdownTimerWidgetxState();
+  State<CountdownTimerWidgetx> createState() => CountdownTimerWidgetxState();
 }
 
 class CountdownTimerWidgetxState extends State<CountdownTimerWidgetx> {
@@ -106,9 +94,6 @@ class CountdownTimerWidgetxState extends State<CountdownTimerWidgetx> {
     if (widget.builder != null) {
       return widget.builder!(context, _remaining, _isFinished);
     }
-    return Text(
-      _isFinished ? '00:00' : _format(_remaining),
-      style: widget.textStyle ?? Theme.of(context).textTheme.titleMedium,
-    );
+    return Text(_isFinished ? '00:00' : _format(_remaining), style: widget.textStyle ?? Theme.of(context).textTheme.titleMedium);
   }
 }

@@ -60,12 +60,7 @@ class AvatarWidgetx extends StatelessWidget {
           ? null
           : Text(
               _initials,
-              style: textStyle ??
-                  TextStyle(
-                    color: fg,
-                    fontWeight: FontWeight.w600,
-                    fontSize: radius * 0.6,
-                  ),
+              style: textStyle ?? TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: radius * 0.6),
             ),
     );
 
@@ -85,10 +80,7 @@ class AvatarWidgetx extends StatelessWidget {
               decoration: BoxDecoration(
                 color: onlineColor,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.colorScheme.surface,
-                  width: 1.5,
-                ),
+                border: Border.all(color: theme.colorScheme.surface, width: 1.5),
               ),
             ),
           ),
@@ -97,27 +89,17 @@ class AvatarWidgetx extends StatelessWidget {
             top: 0,
             right: 0,
             child: Container(
-              constraints: BoxConstraints(
-                minWidth: radius * 0.5,
-                minHeight: radius * 0.5,
-              ),
+              constraints: BoxConstraints(minWidth: radius * 0.5, minHeight: radius * 0.5),
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: badgeColor ?? theme.colorScheme.error,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.colorScheme.surface,
-                  width: 1.5,
-                ),
+                border: Border.all(color: theme.colorScheme.surface, width: 1.5),
               ),
               child: Text(
                 badgeCount! > 99 ? '99+' : '$badgeCount',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: badgeTextColor ?? theme.colorScheme.onError,
-                  fontSize: radius * 0.3,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: badgeTextColor ?? theme.colorScheme.onError, fontSize: radius * 0.3, fontWeight: FontWeight.bold),
               ),
             ),
           ),

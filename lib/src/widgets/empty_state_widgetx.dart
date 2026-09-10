@@ -50,38 +50,22 @@ class EmptyStateWidgetx extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: iconSize,
-              color: iconColor ??
-                  theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
+            Icon(icon, size: iconSize, color: iconColor ?? theme.colorScheme.onSurface.withValues(alpha: 0.4)),
             const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: titleStyle ?? theme.textTheme.titleMedium,
-            ),
+            Text(title, textAlign: TextAlign.center, style: titleStyle ?? theme.textTheme.titleMedium),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: subtitleStyle ??
-                    theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
-                    ),
+                style: subtitleStyle ?? theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
             ],
             if (actionText != null && onAction != null) ...[
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: onAction,
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      actionColor ?? theme.colorScheme.primary,
-                ),
+                style: FilledButton.styleFrom(backgroundColor: actionColor ?? theme.colorScheme.primary),
                 child: Text(actionText!),
               ),
             ],

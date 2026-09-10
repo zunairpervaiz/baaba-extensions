@@ -52,15 +52,13 @@ class _RatingWidgetxState extends State<RatingWidgetx> {
   @override
   void initState() {
     super.initState();
-    _rating = widget.initialRating
-        .clamp(0.0, widget.starCount.toDouble());
+    _rating = widget.initialRating.clamp(0.0, widget.starCount.toDouble());
   }
 
   void _onTap(int starNumber, TapDownDetails details) {
     if (widget.readOnly) return;
     double newRating;
-    if (widget.allowHalfRating &&
-        details.localPosition.dx < widget.size / 2) {
+    if (widget.allowHalfRating && details.localPosition.dx < widget.size / 2) {
       newRating = starNumber - 0.5;
     } else {
       newRating = starNumber.toDouble();
@@ -92,9 +90,7 @@ class _RatingWidgetxState extends State<RatingWidgetx> {
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: widget.spacing / 2),
           child: GestureDetector(
-            onTapDown: widget.readOnly
-                ? null
-                : (details) => _onTap(starNumber, details),
+            onTapDown: widget.readOnly ? null : (details) => _onTap(starNumber, details),
             child: Icon(icon, size: widget.size, color: color),
           ),
         );

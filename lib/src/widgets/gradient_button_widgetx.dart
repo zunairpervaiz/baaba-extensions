@@ -55,37 +55,21 @@ class GradientButtonWidgetx extends StatelessWidget {
             height: height,
             width: width,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradientColors,
-                begin: gradientBegin,
-                end: gradientEnd,
-              ),
+              gradient: LinearGradient(colors: gradientColors, begin: gradientBegin, end: gradientEnd),
               borderRadius: BorderRadius.circular(borderRadius),
             ),
             child: Padding(
               padding: padding,
               child: Row(
-                mainAxisSize:
-                    width == null ? MainAxisSize.min : MainAxisSize.max,
+                mainAxisSize: width == null ? MainAxisSize.min : MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (leading != null) ...[
-                    leading!,
-                    const SizedBox(width: 8),
-                  ],
+                  if (leading != null) ...[leading!, const SizedBox(width: 8)],
                   Text(
                     text,
-                    style: textStyle ??
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                    style: textStyle ?? const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                   ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 8),
-                    trailing!,
-                  ],
+                  if (trailing != null) ...[const SizedBox(width: 8), trailing!],
                 ],
               ),
             ),

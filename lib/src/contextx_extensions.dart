@@ -84,15 +84,13 @@ extension ContextX on BuildContext {
   NavigatorState get navigator => Navigator.of(this);
 
   /// Pushes [page] as a [MaterialPageRoute].
-  Future<T?> push<T extends Object?>(Widget page) =>
-      navigator.push<T>(MaterialPageRoute(builder: (_) => page));
+  Future<T?> push<T extends Object?>(Widget page) => navigator.push<T>(MaterialPageRoute(builder: (_) => page));
 
   /// Pops the top route, optionally returning [result].
   void pop<T extends Object?>([T? result]) => navigator.pop<T>(result);
 
   /// Pushes a named route.
-  Future<T?> pushNamed<T extends Object?>(String routeName, {Object? arguments}) =>
-      navigator.pushNamed<T>(routeName, arguments: arguments);
+  Future<T?> pushNamed<T extends Object?>(String routeName, {Object? arguments}) => navigator.pushNamed<T>(routeName, arguments: arguments);
 
   /// Replaces the current route with [page].
   Future<T?> pushReplacement<T extends Object?, TO extends Object?>(Widget page) =>
@@ -100,18 +98,12 @@ extension ContextX on BuildContext {
 
   /// Removes all existing routes and pushes [page] as the new root.
   Future<T?> pushAndRemoveAll<T extends Object?>(Widget page) =>
-      navigator.pushAndRemoveUntil<T>(
-        MaterialPageRoute(builder: (_) => page),
-        (_) => false,
-      );
+      navigator.pushAndRemoveUntil<T>(MaterialPageRoute(builder: (_) => page), (_) => false);
 
   // ── Scaffold ─────────────────────────────────────────────────────────────
 
   /// Shows [snackBar] via the nearest [ScaffoldMessenger].
-  ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
-    SnackBar snackBar,
-  ) =>
-      ScaffoldMessenger.of(this).showSnackBar(snackBar);
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(SnackBar snackBar) => ScaffoldMessenger.of(this).showSnackBar(snackBar);
 
   /// Shows a modal bottom sheet.
   Future<T?> showModalSheet<T>({
@@ -121,18 +113,14 @@ extension ContextX on BuildContext {
     Color? backgroundColor,
     ShapeBorder? shape,
     BorderRadius? borderRadius,
-  }) =>
-      showModalBottomSheet<T>(
-        context: this,
-        builder: builder,
-        isScrollControlled: isScrollControlled,
-        isDismissible: isDismissible,
-        backgroundColor: backgroundColor,
-        shape: shape ??
-            (borderRadius != null
-                ? RoundedRectangleBorder(borderRadius: borderRadius)
-                : null),
-      );
+  }) => showModalBottomSheet<T>(
+    context: this,
+    builder: builder,
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    backgroundColor: backgroundColor,
+    shape: shape ?? (borderRadius != null ? RoundedRectangleBorder(borderRadius: borderRadius) : null),
+  );
 
   // ── Pickers ───────────────────────────────────────────────────────────────
 
@@ -203,19 +191,18 @@ extension ContextX on BuildContext {
     bool useRootNavigator = true,
     RouteSettings? routeSettings,
     Orientation? orientation,
-  }) =>
-      showTimePicker(
-        context: this,
-        initialTime: initialTime ?? TimeOfDay.now(),
-        initialEntryMode: initialEntryMode,
-        helpText: helpText,
-        cancelText: cancelText,
-        confirmText: confirmText,
-        hourLabelText: hourLabelText,
-        minuteLabelText: minuteLabelText,
-        builder: builder,
-        useRootNavigator: useRootNavigator,
-        routeSettings: routeSettings,
-        orientation: orientation,
-      );
+  }) => showTimePicker(
+    context: this,
+    initialTime: initialTime ?? TimeOfDay.now(),
+    initialEntryMode: initialEntryMode,
+    helpText: helpText,
+    cancelText: cancelText,
+    confirmText: confirmText,
+    hourLabelText: hourLabelText,
+    minuteLabelText: minuteLabelText,
+    builder: builder,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    orientation: orientation,
+  );
 }

@@ -35,25 +35,21 @@ extension DateTimeExt on DateTime {
   DateTime get endOfDay => DateTime(year, month, day, 23, 59, 59, 999);
 
   /// Returns true when this date falls on the same calendar day as [other].
-  bool isSameDay(DateTime other) =>
-      year == other.year && month == other.month && day == other.day;
+  bool isSameDay(DateTime other) => year == other.year && month == other.month && day == other.day;
 
   // ── Week ──────────────────────────────────────────────────────────────────
 
   /// Returns true when the weekday is Saturday or Sunday.
-  bool get isWeekend =>
-      weekday == DateTime.saturday || weekday == DateTime.sunday;
+  bool get isWeekend => weekday == DateTime.saturday || weekday == DateTime.sunday;
 
   /// Returns true when the weekday is Monday through Friday.
   bool get isWeekday => !isWeekend;
 
   /// Returns the [DateTime] at midnight of the Monday that starts this week.
-  DateTime get startOfWeek =>
-      subtract(Duration(days: weekday - 1)).startOfDay;
+  DateTime get startOfWeek => subtract(Duration(days: weekday - 1)).startOfDay;
 
   /// Returns the [DateTime] at end-of-day of the Sunday that ends this week.
-  DateTime get endOfWeek =>
-      startOfWeek.add(const Duration(days: 6)).endOfDay;
+  DateTime get endOfWeek => startOfWeek.add(const Duration(days: 6)).endOfDay;
 
   // ── Month ─────────────────────────────────────────────────────────────────
 
@@ -64,8 +60,7 @@ extension DateTimeExt on DateTime {
   DateTime get endOfMonth => DateTime(year, month + 1, 0, 23, 59, 59, 999);
 
   /// Returns true when this date is in the same calendar month as [other].
-  bool isSameMonth(DateTime other) =>
-      year == other.year && month == other.month;
+  bool isSameMonth(DateTime other) => year == other.year && month == other.month;
 
   // ── Year ──────────────────────────────────────────────────────────────────
 
@@ -120,8 +115,7 @@ extension DateTimeExt on DateTime {
 int currentMillisecondsTimeStamp() => DateTime.now().millisecondsSinceEpoch;
 
 /// Returns the current time as Unix seconds.
-int currentTimeStamp() =>
-    (DateTime.now().millisecondsSinceEpoch ~/ 1000).toInt();
+int currentTimeStamp() => (DateTime.now().millisecondsSinceEpoch ~/ 1000).toInt();
 
 /// Returns true when [year] is a leap year.
 bool leapYear(int year) {

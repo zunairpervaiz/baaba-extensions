@@ -6,9 +6,7 @@ extension ColorX on Color {
   /// Example: `Colors.blue.lighten(0.2)`
   Color lighten([double amount = 0.1]) {
     final hsl = HSLColor.fromColor(this);
-    return hsl
-        .withLightness((hsl.lightness + amount).clamp(0.0, 1.0))
-        .toColor();
+    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
   }
 
   /// Returns a darker version of this color by decreasing HSL lightness by [amount].
@@ -16,9 +14,7 @@ extension ColorX on Color {
   /// Example: `Colors.blue.darken(0.2)`
   Color darken([double amount = 0.1]) {
     final hsl = HSLColor.fromColor(this);
-    return hsl
-        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
-        .toColor();
+    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
   }
 
   /// Returns the hex string representation of this color.
@@ -28,9 +24,7 @@ extension ColorX on Color {
     final ri = (r * 255).round().toRadixString(16).padLeft(2, '0');
     final gi = (g * 255).round().toRadixString(16).padLeft(2, '0');
     final bi = (b * 255).round().toRadixString(16).padLeft(2, '0');
-    final hex = includeAlpha
-        ? '${(a * 255).round().toRadixString(16).padLeft(2, '0')}$ri$gi$bi'
-        : '$ri$gi$bi';
+    final hex = includeAlpha ? '${(a * 255).round().toRadixString(16).padLeft(2, '0')}$ri$gi$bi' : '$ri$gi$bi';
     return leadingHash ? '#$hex' : hex;
   }
 

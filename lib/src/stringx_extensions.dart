@@ -41,8 +41,7 @@ extension StringExtension on String? {
   }
 
   /// Capitalize given String
-  String capitalizeFirstLetter() =>
-      (validate().isNotEmpty) ? (this!.substring(0, 1).toUpperCase() + this!.substring(1).toLowerCase()) : validate();
+  String capitalizeFirstLetter() => (validate().isNotEmpty) ? (this!.substring(0, 1).toUpperCase() + this!.substring(1).toLowerCase()) : validate();
 
   /// Image regex
   bool get isImage => hasMatch(Patterns.image);
@@ -489,14 +488,12 @@ extension StringExtension on String? {
   /// Returns true when this string contains any of the given [needles].
   ///
   /// Example: `'hello'.containsAny(['hi', 'hello'])` → `true`
-  bool containsAny(List<String> needles) =>
-      needles.any((needle) => validate().contains(needle));
+  bool containsAny(List<String> needles) => needles.any((needle) => validate().contains(needle));
 
   /// Returns true when this string contains all of the given [needles].
   ///
   /// Example: `'hello world'.containsAll(['hello', 'world'])` → `true`
-  bool containsAll(List<String> needles) =>
-      needles.every((needle) => validate().contains(needle));
+  bool containsAll(List<String> needles) => needles.every((needle) => validate().contains(needle));
 
   /// Wraps the string at [lineLength] characters, breaking at word boundaries.
   ///

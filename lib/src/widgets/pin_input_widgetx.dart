@@ -90,25 +90,19 @@ class _PinInputWidgetxState extends State<PinInputWidgetx> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final border = widget.borderColor ?? theme.colorScheme.outline;
-    final activeBorder =
-        widget.activeBorderColor ?? theme.colorScheme.primary;
+    final activeBorder = widget.activeBorderColor ?? theme.colorScheme.primary;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(widget.length, (i) {
         return Padding(
-          padding: EdgeInsets.only(
-            right: i < widget.length - 1 ? widget.boxSpacing : 0,
-          ),
+          padding: EdgeInsets.only(right: i < widget.length - 1 ? widget.boxSpacing : 0),
           child: SizedBox(
             width: widget.boxSize,
             height: widget.boxSize,
             child: Focus(
               onKeyEvent: (_, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.backspace &&
-                    _controllers[i].text.isEmpty &&
-                    i > 0) {
+                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controllers[i].text.isEmpty && i > 0) {
                   _controllers[i - 1].clear();
                   _nodes[i - 1].requestFocus();
                   return KeyEventResult.handled;
@@ -134,10 +128,8 @@ class _PinInputWidgetxState extends State<PinInputWidgetx> {
                     borderRadius: BorderRadius.circular(widget.borderRadius),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide:
-                        BorderSide(color: activeBorder, width: 2),
-                    borderRadius:
-                        BorderRadius.circular(widget.borderRadius),
+                    borderSide: BorderSide(color: activeBorder, width: 2),
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
                   ),
                 ),
                 onChanged: (v) => _onChanged(i, v),
