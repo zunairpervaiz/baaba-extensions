@@ -1,3 +1,12 @@
+## 0.7.1
+
+### Changed
+- Upgraded `fluttertoast` from `^9.0.0` to `^10.0.0`. The toast API used by `StringExtension.toastString()` and the toast globals in `default_configs.dart` is unchanged; the upstream release moves its Android build to Kotlin compiler options built into the Flutter toolchain.
+- Raised the minimum SDKs to Dart `^3.12.0` and Flutter `>=3.44.0` (were `^3.11.3` and `>=1.17.0`). `fluttertoast` 10 requires these versions, so the old floors could no longer be resolved. Apps on older toolchains should stay on `0.7.0`.
+
+### Tooling
+- `analysis_options.yaml` now excludes `build/**` from analysis.
+
 ## 0.7.0
 
 ### Added — Widgets

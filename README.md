@@ -2309,9 +2309,9 @@ defaultImagePickerRemoveTextGlobal  = 'Tasveer hatayein';
 
 ## Requirements
 
-- Dart SDK `^3.11.3`
-- Flutter `>=1.17.0`
-- [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^9.0.0` — used by `StringExtension.toastString()`
+- Dart SDK `^3.12.0`
+- Flutter `>=3.44.0`
+- [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^10.0.0` — used by `StringExtension.toastString()`
 - [`flutter_auto_size_text`](https://pub.dev/packages/flutter_auto_size_text) `^5.0.0` — used by `VxTextBuilder`
 - [`connectivity_plus`](https://pub.dev/packages/connectivity_plus) `^7.3.1` — used by `ConnectivityBannerWidgetx`
 - [`image_picker`](https://pub.dev/packages/image_picker) `^1.2.3` — used by `ImagePickerSheetWidgetx`

@@ -75,9 +75,8 @@ class PageX<T> {
 /// ```
 class PaginatorX<T> extends ChangeNotifier {
   /// Creates a paginator driven by a [PageFetcherX].
-  PaginatorX({required PageFetcherX<T> fetchPage, int? pageSize, this.firstPage = 1, this.timeout, this.itemId})
-    : _fetchPage = fetchPage,
-      pageSize = pageSize ?? defaultPaginationPageSizeGlobal {
+  PaginatorX({required this._fetchPage, int? pageSize, this.firstPage = 1, this.timeout, this.itemId})
+    : pageSize = pageSize ?? defaultPaginationPageSizeGlobal {
     _page = firstPage;
   }
 

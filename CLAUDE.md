@@ -1,9 +1,9 @@
 # baaba_extensions
 
-Flutter/Dart extension package. Dart SDK `^3.11.3`, Flutter `>=1.17.0`.
+Flutter/Dart extension package. Dart SDK `^3.12.0`, Flutter `>=3.44.0` (floor set by `fluttertoast ^10.0.0`).
 
 ## Dependencies
-- `fluttertoast: ^9.0.0` — used only in `StringExtension.toastString()`
+- `fluttertoast: ^10.0.0` — used only in `StringExtension.toastString()`
 - `flutter_auto_size_text: ^5.0.0` — used only in `VxTextBuilder`
 - `connectivity_plus: ^7.3.1` — used only in `ConnectivityBannerWidgetx`
 - `image_picker: ^1.2.3` — used only in `ImagePickerSheetWidgetx`
