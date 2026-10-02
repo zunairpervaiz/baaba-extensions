@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 extension ListxWidgetExtensions on List<Widget> {
   /// Returns a [Row] laying these widgets out horizontally.
@@ -94,7 +95,7 @@ extension ListxWidgetExtensions on List<Widget> {
           padding: padding,
           itemExtent: itemExtent,
           prototypeItem: prototypeItem,
-          cacheExtent: cacheExtent,
+          scrollCacheExtent: cacheExtent == null ? null : ScrollCacheExtent.pixels(cacheExtent),
           dragStartBehavior: dragStartBehavior,
           keyboardDismissBehavior: keyboardDismissBehavior,
           restorationId: restorationId,
@@ -116,7 +117,7 @@ extension ListxWidgetExtensions on List<Widget> {
           padding: padding,
           itemExtent: itemExtent,
           prototypeItem: prototypeItem,
-          cacheExtent: cacheExtent,
+          scrollCacheExtent: cacheExtent == null ? null : ScrollCacheExtent.pixels(cacheExtent),
           dragStartBehavior: dragStartBehavior,
           keyboardDismissBehavior: keyboardDismissBehavior,
           restorationId: restorationId,
@@ -192,7 +193,7 @@ extension ListxWidgetExtensions on List<Widget> {
     physics: physics,
     shrinkWrap: shrinkWrap,
     padding: padding,
-    cacheExtent: cacheExtent,
+    scrollCacheExtent: cacheExtent == null ? null : ScrollCacheExtent.pixels(cacheExtent),
     restorationId: restorationId,
     clipBehavior: clipBehavior,
     children: this,

@@ -55,6 +55,18 @@ class _RatingWidgetxState extends State<RatingWidgetx> {
     _rating = widget.initialRating.clamp(0.0, widget.starCount.toDouble());
   }
 
+  @override
+  void didUpdateWidget(covariant RatingWidgetx oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new initialRating replaces the current one; a new starCount alone
+    // keeps the user's rating but clamps it to the stars that remain.
+    if (widget.initialRating != oldWidget.initialRating) {
+      _rating = widget.initialRating.clamp(0.0, widget.starCount.toDouble());
+    } else if (widget.starCount != oldWidget.starCount) {
+      _rating = _rating.clamp(0.0, widget.starCount.toDouble());
+    }
+  }
+
   void _onTap(int starNumber, TapDownDetails details) {
     if (widget.readOnly) return;
     double newRating;

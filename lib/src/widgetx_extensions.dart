@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 extension WidgetX on Widget {
   /// Wraps the widget in a [Center].
@@ -121,4 +125,85 @@ extension WidgetX on Widget {
 
   /// Wraps the widget in a [SliverToBoxAdapter].
   SliverToBoxAdapter get sliverBox => SliverToBoxAdapter(child: this);
+
+  /// Renders this widget off-screen and returns it as PNG bytes, sized to the
+  /// widget itself — for custom map markers, share images, or thumbnails.
+  ///
+  /// The widget is laid out with loose constraints up to [logicalSize]
+  /// (defaults to the screen) and captured at [pixelRatio] (defaults to the
+  /// device pixel ratio). It is built outside the app's tree, so it inherits
+  /// no [Theme], [MediaQuery] text scale, or localizations — wrap it in those
+  /// if it needs them. [waitToRender] gives images inside it time to decode
+  /// before the capture.
+  ///
+  /// Example (a Google Maps marker):
+  /// ```dart
+  /// final dpr = View.of(context).devicePixelRatio;
+  /// final icon = BitmapDescriptor.bytes(await markerWidget.toPngBytes(), imagePixelRatio: dpr);
+  /// ```
+  Future<Uint8List> toPngBytes({
+    Size? logicalSize,
+    double? pixelRatio,
+    Duration waitToRender = const Duration(milliseconds: 300),
+    TextDirection textDirection = TextDirection.ltr,
+    ui.FlutterView? view,
+  }) async {
+    final targetView = view ?? ui.PlatformDispatcher.instance.implicitView ?? ui.PlatformDispatcher.instance.views.first;
+    final size = logicalSize ?? targetView.physicalSize / targetView.devicePixelRatio;
+    final capturePixelRatio = pixelRatio ?? targetView.devicePixelRatio;
+
+    final repaintBoundary = RenderRepaintBoundary();
+    final renderView = RenderView(
+      view: targetView,
+      child: RenderPositionedBox(alignment: Alignment.center, child: repaintBoundary),
+      configuration: ViewConfiguration(
+        logicalConstraints: BoxConstraints.tight(size),
+        physicalConstraints: BoxConstraints.tight(size) * targetView.devicePixelRatio,
+        devicePixelRatio: targetView.devicePixelRatio,
+      ),
+    );
+    final pipelineOwner = PipelineOwner()..rootNode = renderView;
+    final focusManager = FocusManager();
+    final buildOwner = BuildOwner(focusManager: focusManager);
+    renderView.prepareInitialFrame();
+
+    final rootElement = RenderObjectToWidgetAdapter<RenderBox>(
+      container: repaintBoundary,
+      child: MediaQuery(
+        // The capture ratio, so Image.asset picks the matching 2x/3x variant
+        // instead of the 1x one, which would come out blurry.
+        data: MediaQueryData(devicePixelRatio: capturePixelRatio),
+        child: Directionality(textDirection: textDirection, child: this),
+      ),
+    ).attachToRenderTree(buildOwner);
+
+    ui.Image? image;
+    try {
+      buildOwner.buildScope(rootElement);
+      await Future<void>.delayed(waitToRender);
+      buildOwner.buildScope(rootElement);
+      buildOwner.finalizeTree();
+
+      pipelineOwner
+        ..flushLayout()
+        ..flushCompositingBits()
+        ..flushPaint();
+
+      image = await repaintBoundary.toImage(pixelRatio: capturePixelRatio);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      return bytes!.buffer.asUint8List();
+    } finally {
+      // Tear the off-screen tree down so its State objects are disposed and
+      // nothing outlives the capture — this runs once per marker.
+      image?.dispose();
+      RenderObjectToWidgetAdapter<RenderBox>(container: repaintBoundary).attachToRenderTree(buildOwner, rootElement);
+      buildOwner
+        ..buildScope(rootElement)
+        ..finalizeTree();
+      pipelineOwner.rootNode = null;
+      pipelineOwner.dispose();
+      renderView.dispose();
+      focusManager.dispose();
+    }
+  }
 }

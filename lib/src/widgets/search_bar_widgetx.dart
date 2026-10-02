@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 /// A styled search input with a clear button and built-in debounce.
 ///
 /// [onSearch] fires after [debounceDuration] of inactivity.
-/// [onChanged] fires on every keystroke.
+/// [onChanged] fires on every change to the text — not on a cursor or
+/// selection move. The clear button fires [onSearch] with `''` at once.
 ///
 /// Example:
 /// ```dart
@@ -51,36 +52,75 @@ class SearchBarWidgetx extends StatefulWidget {
 }
 
 class _SearchBarWidgetxState extends State<SearchBarWidgetx> {
-  late final TextEditingController _controller;
+  /// Created only when no [SearchBarWidgetx.controller] is supplied, so that
+  /// a caller-owned controller is never disposed here.
+  TextEditingController? _ownedController;
   Timer? _debounce;
-  bool _hasText = false;
+  late bool _hasText;
+
+  /// The text last reported, so that a selection or composing change — which
+  /// also notifies the controller's listeners — does not re-fire the callbacks.
+  late String _lastText;
+
+  TextEditingController get _controller => widget.controller ?? _ownedController!;
 
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? TextEditingController();
+    if (widget.controller == null) _ownedController = TextEditingController();
+    _attach();
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchBarWidgetx oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller == oldWidget.controller) return;
+    final previous = oldWidget.controller ?? _ownedController!;
+    previous.removeListener(_onTextChanged);
+    if (widget.controller == null) {
+      // The caller stopped supplying one: take over with its current text.
+      _ownedController = TextEditingController(text: previous.text);
+    } else if (_ownedController != null) {
+      // Disposed after the frame, once the TextField has let go of it.
+      final stale = _ownedController!;
+      _ownedController = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) => stale.dispose());
+    }
+    _attach();
+  }
+
+  void _attach() {
+    _lastText = _controller.text;
+    _hasText = _lastText.isNotEmpty;
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    if (widget.controller == null) _controller.dispose();
+    _controller.removeListener(_onTextChanged);
+    _ownedController?.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
-    final hasText = _controller.text.isNotEmpty;
+    final text = _controller.text;
+    if (text == _lastText) return;
+    _lastText = text;
+    final hasText = text.isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
-    widget.onChanged?.call(_controller.text);
+    widget.onChanged?.call(text);
     _debounce?.cancel();
     _debounce = Timer(widget.debounceDuration, () {
-      widget.onSearch?.call(_controller.text);
+      widget.onSearch?.call(text);
     });
   }
 
   void _clear() {
     _controller.clear();
+    // Clearing schedules a debounced search like any edit; cancel it so the
+    // immediate onSearch('') below is the only one.
+    _debounce?.cancel();
     widget.onClear?.call();
     widget.onSearch?.call('');
   }

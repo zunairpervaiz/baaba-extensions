@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../utils/default_configs.dart';
 import '../utils/enums.dart';
 import '../utils/formx.dart';
+import '../utils/grouped_digits_formatterx.dart';
 import '../utils/patterns.dart';
 
 /// A styled text field that pairs with [FormX] and validates against
@@ -280,6 +281,44 @@ class _TextFieldWidgetxState<K> extends State<TextFieldWidgetx<K>> {
   }
 
   @override
+  void didUpdateWidget(covariant TextFieldWidgetx<K> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The caller may start or stop supplying a form, controller, or focus node
+    // between builds. Create an owned one when the supplied one disappears,
+    // and release the owned one when the caller supplies their own. Caller-
+    // owned objects are never disposed here.
+    final needsController = widget.form == null && widget.controller == null;
+    if (needsController && _ownedController == null) {
+      // Carry the text over so the field does not blank out.
+      _ownedController = TextEditingController(text: _controllerOf(oldWidget)?.text);
+    } else if (!needsController && _ownedController != null) {
+      _disposeAfterFrame(_ownedController!);
+      _ownedController = null;
+    }
+
+    final needsFocusNode = widget.form == null && widget.focusNode == null;
+    if (needsFocusNode && _ownedFocusNode == null) {
+      _ownedFocusNode = FocusNode();
+    } else if (!needsFocusNode && _ownedFocusNode != null) {
+      _disposeAfterFrame(_ownedFocusNode!);
+      _ownedFocusNode = null;
+    }
+  }
+
+  /// The controller [w] was displaying, owned or not, for carrying text over.
+  TextEditingController? _controllerOf(TextFieldWidgetx<K> w) {
+    final form = w.form;
+    if (form != null) return form[w.fieldKey as K];
+    return w.controller ?? _ownedController;
+  }
+
+  /// Disposes [notifier] once the frame is done, after the [TextFormField]
+  /// has detached from it in this rebuild.
+  void _disposeAfterFrame(ChangeNotifier notifier) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => notifier.dispose());
+  }
+
+  @override
   void dispose() {
     // Only what this widget created is disposed; a FormX or a caller-supplied
     // controller outlives the field and owns its own cleanup.
@@ -308,7 +347,7 @@ class _TextFieldWidgetxState<K> extends State<TextFieldWidgetx<K>> {
       FieldTypeX.email => TextInputType.emailAddress,
       FieldTypeX.password => TextInputType.visiblePassword,
       FieldTypeX.phone => TextInputType.phone,
-      FieldTypeX.number => TextInputType.number,
+      FieldTypeX.number || FieldTypeX.cnic => TextInputType.number,
       FieldTypeX.multiline => TextInputType.multiline,
       FieldTypeX.url => TextInputType.url,
       FieldTypeX.text || FieldTypeX.search => TextInputType.text,
@@ -333,6 +372,7 @@ class _TextFieldWidgetxState<K> extends State<TextFieldWidgetx<K>> {
       FieldTypeX.phone => Icons.phone_outlined,
       FieldTypeX.search => Icons.search_rounded,
       FieldTypeX.url => Icons.link_rounded,
+      FieldTypeX.cnic => Icons.badge_outlined,
       FieldTypeX.text || FieldTypeX.number || FieldTypeX.multiline => null,
     };
   }
@@ -354,6 +394,7 @@ class _TextFieldWidgetxState<K> extends State<TextFieldWidgetx<K>> {
       FieldTypeX.email => Patterns.email,
       FieldTypeX.phone => Patterns.phone,
       FieldTypeX.url => Patterns.url,
+      FieldTypeX.cnic => Patterns.cnic,
       _ => null,
     };
   }
@@ -363,12 +404,14 @@ class _TextFieldWidgetxState<K> extends State<TextFieldWidgetx<K>> {
     return switch (widget.type) {
       FieldTypeX.email => defaultFieldInvalidEmailMessageGlobal,
       FieldTypeX.phone => defaultFieldInvalidPhoneMessageGlobal,
+      FieldTypeX.cnic => defaultFieldInvalidCnicMessageGlobal,
       _ => 'Enter a valid ${(widget.label ?? 'value').toLowerCase()}',
     };
   }
 
   List<TextInputFormatter> get _formatters => [
     if (widget.type == FieldTypeX.number) FilteringTextInputFormatter.digitsOnly,
+    if (widget.type == FieldTypeX.cnic) const GroupedDigitsInputFormatterX.cnic(),
     ...?widget.inputFormatters,
   ];
 

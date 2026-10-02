@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/default_configs.dart';
@@ -8,22 +7,30 @@ import '../utils/default_configs.dart';
 /// Wraps a screen and slides an offline banner over it whenever the device
 /// loses connectivity, then a brief "Back online" confirmation when it returns.
 ///
-/// Wrap it once around your app's builder rather than per screen:
+/// The package does not depend on a connectivity plugin — the app supplies
+/// the connection state through [statusStream], from `connectivity_plus` or
+/// whatever it already uses. Wrap it once around your app's builder rather
+/// than per screen:
 ///
 /// ```dart
 /// MaterialApp(
-///   builder: (context, child) => ConnectivityBannerWidgetx(child: child!),
+///   builder: (context, child) => ConnectivityBannerWidgetx(
+///     statusStream: Connectivity().onConnectivityChanged
+///         .map((results) => results.any((r) => r != ConnectivityResult.none)),
+///     child: child!,
+///   ),
 ///   home: const HomePage(),
 /// )
 /// ```
 ///
-/// [connectivity_plus] reports whether a network *interface* is up, not
-/// whether the internet is actually reachable — a captive-portal wifi still
-/// counts as connected. Pass [verifyConnection] to make the banner depend on a
-/// real request:
+/// A plugin like `connectivity_plus` reports whether a network *interface* is
+/// up, not whether the internet is actually reachable — a captive-portal wifi
+/// still counts as connected. Pass [verifyConnection] to make the banner
+/// depend on a real request:
 ///
 /// ```dart
 /// ConnectivityBannerWidgetx(
+///   statusStream: connectionStream,
 ///   verifyConnection: () async {
 ///     try {
 ///       final result = await InternetAddress.lookup('example.com');
@@ -38,6 +45,13 @@ import '../utils/default_configs.dart';
 class ConnectivityBannerWidgetx extends StatefulWidget {
   /// The screen the banner is drawn over.
   final Widget child;
+
+  /// The connection state, emitting `true` when online.
+  ///
+  /// No banner is shown until the first value arrives, so a stream that only
+  /// fires on change should be seeded with the current state — otherwise an
+  /// app launched offline shows nothing.
+  final Stream<bool> statusStream;
 
   /// Message shown while the device is offline.
   /// Defaults to [defaultOfflineMessageGlobal].
@@ -89,19 +103,14 @@ class ConnectivityBannerWidgetx extends StatefulWidget {
   /// Called whenever the connection state changes.
   final ValueChanged<bool>? onStatusChanged;
 
-  /// Confirms that the internet is really reachable after the platform
+  /// Confirms that the internet is really reachable after [statusStream]
   /// reports a connection. Returning `false` keeps the offline banner up.
   final Future<bool> Function()? verifyConnection;
-
-  /// Overrides the connectivity source, mainly for tests and for apps that
-  /// already track connection state themselves. Emits `true` when online.
-  ///
-  /// When set, [connectivity_plus] is not consulted at all.
-  final Stream<bool>? statusStream;
 
   const ConnectivityBannerWidgetx({
     super.key,
     required this.child,
+    required this.statusStream,
     this.offlineMessage,
     this.onlineMessage,
     this.showOnlineBanner = true,
@@ -119,7 +128,6 @@ class ConnectivityBannerWidgetx extends StatefulWidget {
     this.bannerBuilder,
     this.onStatusChanged,
     this.verifyConnection,
-    this.statusStream,
   });
 
   @override
@@ -127,7 +135,7 @@ class ConnectivityBannerWidgetx extends StatefulWidget {
 }
 
 class _ConnectivityBannerWidgetxState extends State<ConnectivityBannerWidgetx> {
-  StreamSubscription<Object?>? _subscription;
+  StreamSubscription<bool>? _subscription;
   Timer? _hideOnlineTimer;
 
   /// Null until the first reading arrives, so no banner flashes on startup
@@ -151,6 +159,8 @@ class _ConnectivityBannerWidgetxState extends State<ConnectivityBannerWidgetx> {
     super.didUpdateWidget(oldWidget);
     if (widget.statusStream != oldWidget.statusStream) {
       _subscription?.cancel();
+      // Discard a verifyConnection still running for the old stream.
+      _statusGeneration++;
       _listen();
     }
   }
@@ -163,23 +173,16 @@ class _ConnectivityBannerWidgetxState extends State<ConnectivityBannerWidgetx> {
   }
 
   void _listen() {
-    final injected = widget.statusStream;
-    if (injected != null) {
-      _subscription = injected.listen(_applyStatus);
-      return;
-    }
-
-    final connectivity = Connectivity();
-    _subscription = connectivity.onConnectivityChanged.listen((results) => _handleResults(results));
-    // The stream only fires on change, so the current state is read once up
-    // front — otherwise an app launched offline shows no banner at all.
-    connectivity.checkConnectivity().then(_handleResults).catchError((_) {});
+    _subscription = widget.statusStream.listen(_handleStatus);
   }
 
-  Future<void> _handleResults(List<ConnectivityResult> results) async {
-    final hasInterface = results.any((r) => r != ConnectivityResult.none);
+  /// Bumped on every status, so a slow [ConnectivityBannerWidgetx.verifyConnection]
+  /// that finishes after a newer status cannot overwrite it.
+  int _statusGeneration = 0;
 
-    if (!hasInterface) {
+  Future<void> _handleStatus(bool hasConnection) async {
+    final generation = ++_statusGeneration;
+    if (!hasConnection) {
       _applyStatus(false);
       return;
     }
@@ -196,7 +199,7 @@ class _ConnectivityBannerWidgetxState extends State<ConnectivityBannerWidgetx> {
     } catch (_) {
       reachable = false;
     }
-    if (mounted) _applyStatus(reachable);
+    if (mounted && generation == _statusGeneration) _applyStatus(reachable);
   }
 
   void _applyStatus(bool isOnline) {

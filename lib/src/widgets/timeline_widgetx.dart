@@ -316,6 +316,10 @@ class _TimelineNode extends StatelessWidget {
   }
 }
 
+// Painted rather than built from a LayoutBuilder of dash widgets: the row sits
+// inside an IntrinsicHeight, and LayoutBuilder cannot report intrinsic sizes.
+// The SizedBox contributes no intrinsic height, so the line simply fills
+// whatever height the entry content gives the row.
 class _DashedLine extends StatelessWidget {
   const _DashedLine({required this.width, required this.color});
 
@@ -324,22 +328,29 @@ class _DashedLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const dash = 4.0;
-        const gap = 3.0;
-        final count = (constraints.maxHeight / (dash + gap)).floor().clamp(0, 200);
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: List.generate(
-            count,
-            (_) => Padding(
-              padding: const EdgeInsets.only(bottom: gap),
-              child: Container(width: width, height: dash, color: color),
-            ),
-          ),
-        );
-      },
+    return CustomPaint(
+      painter: _DashedLinePainter(color: color),
+      child: SizedBox(width: width, height: double.infinity),
     );
   }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  _DashedLinePainter({required this.color});
+
+  static const double dash = 4.0;
+  static const double gap = 3.0;
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    for (var top = 0.0; top < size.height; top += dash + gap) {
+      canvas.drawRect(Rect.fromLTWH(0, top, size.width, (size.height - top).clamp(0.0, dash)), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter old) => old.color != color;
 }

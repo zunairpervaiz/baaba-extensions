@@ -3,6 +3,10 @@ import 'dart:math';
 
 import 'package:baaba_extensions/baaba_extensions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 enum _F { name, email, password }
@@ -3196,6 +3200,86 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('verifyConnection returning false keeps the offline banner up', (tester) async {
+      final status = StreamController<bool>.broadcast();
+      addTearDown(status.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConnectivityBannerWidgetx(
+            statusStream: status.stream,
+            verifyConnection: () async => false,
+            child: const Scaffold(body: SizedBox()),
+          ),
+        ),
+      );
+
+      status.add(false);
+      await tester.pumpAndSettle();
+      status.add(true);
+      await tester.pumpAndSettle();
+
+      expect(find.text(defaultOfflineMessageGlobal), findsOneWidget);
+      expect(find.text(defaultOnlineMessageGlobal), findsNothing);
+    });
+
+    testWidgets('a slow verification does not overwrite a newer offline status', (tester) async {
+      final status = StreamController<bool>.broadcast();
+      addTearDown(status.close);
+      final verification = Completer<bool>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConnectivityBannerWidgetx(
+            statusStream: status.stream,
+            verifyConnection: () => verification.future,
+            child: const Scaffold(body: SizedBox()),
+          ),
+        ),
+      );
+
+      status.add(true);
+      await tester.pump();
+      status.add(false);
+      await tester.pumpAndSettle();
+
+      verification.complete(true);
+      await tester.pumpAndSettle();
+
+      expect(find.text(defaultOfflineMessageGlobal), findsOneWidget);
+    });
+
+    testWidgets('a verification still running when statusStream is swapped is discarded', (tester) async {
+      final first = StreamController<bool>.broadcast();
+      final second = StreamController<bool>.broadcast();
+      addTearDown(first.close);
+      addTearDown(second.close);
+      final verification = Completer<bool>();
+      final changes = <bool>[];
+
+      Widget banner(Stream<bool> stream) => MaterialApp(
+            home: ConnectivityBannerWidgetx(
+              statusStream: stream,
+              verifyConnection: () => verification.future,
+              onStatusChanged: changes.add,
+              child: const Scaffold(body: SizedBox()),
+            ),
+          );
+
+      await tester.pumpWidget(banner(first.stream));
+      first.add(false);
+      await tester.pumpAndSettle();
+      first.add(true);
+      await tester.pump();
+
+      await tester.pumpWidget(banner(second.stream));
+      verification.complete(true);
+      await tester.pumpAndSettle();
+
+      expect(changes, [false]);
+      expect(find.text(defaultOfflineMessageGlobal), findsOneWidget);
+    });
   });
 
   // ──────────────────────────────────────────────
@@ -3656,6 +3740,14 @@ void main() {
   // ListxWidgetExtensions — new members
   // ──────────────────────────────────────────────
   group('ListxWidgetExtensions additions', () {
+    test('cacheExtent is passed through as a pixel scroll cache extent', () {
+      final children = [const Text('a'), const Text('b')];
+
+      expect(children.toListView(cacheExtent: 500).scrollCacheExtent, const ScrollCacheExtent.pixels(500));
+      expect(children.toGrid(crossAxisCount: 2, cacheExtent: 250).scrollCacheExtent, const ScrollCacheExtent.pixels(250));
+      expect(children.toListView().scrollCacheExtent, isNull);
+    });
+
     Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
     List<Widget> children() => const [Text('a'), Text('b'), Text('c')];
 
@@ -3767,4 +3859,1634 @@ void main() {
       expect(find.text('c'), findsOneWidget);
     });
   });
+
+  // ──────────────────────────────────────────────
+  // VxTextBuilder
+  // ──────────────────────────────────────────────
+  group('VxTextBuilder', () {
+    Widget host(Widget child, {double textScale = 1, double width = 400}) => MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+            child: Scaffold(body: Align(alignment: Alignment.topLeft, child: SizedBox(width: width, child: child))),
+          ),
+        );
+
+    testWidgets('make builds a plain Text at the size that was set', (tester) async {
+      await tester.pumpWidget(host('Caption'.text.size(11).make()));
+
+      final text = tester.widget<Text>(find.text('Caption'));
+      expect(text.style?.fontSize, 11, reason: 'no 12pt floor');
+    });
+
+    testWidgets('a line limit truncates instead of shrinking the text', (tester) async {
+      await tester.pumpWidget(host('A fairly long single line title'.text.size(16).maxLines(1).ellipsis.make(), width: 150));
+
+      final rich = tester.widget<RichText>(find.byType(RichText));
+      expect(rich.text.style?.fontSize, 16);
+      expect(rich.textScaler.scale(16), 16);
+      expect(rich.overflow, TextOverflow.ellipsis);
+    });
+
+    testWidgets('the system text scale is respected', (tester) async {
+      await tester.pumpWidget(host('Hello'.text.size(10).make(), textScale: 2));
+
+      expect(tester.widget<RichText>(find.byType(RichText)).textScaler.scale(10), 20);
+    });
+
+    testWidgets('size presets compound with the system text scale', (tester) async {
+      await tester.pumpWidget(host('Heading'.text.xl2.make(), textScale: 2));
+
+      final rich = tester.widget<RichText>(find.byType(RichText));
+      expect(rich.text.style?.fontSize, 21, reason: 'xl2 is 1.5 × the 14pt default');
+      expect(rich.textScaler.scale(10), 20, reason: 'the preset does not replace the system scale');
+    });
+
+    testWidgets('size presets apply regardless of chain order', (tester) async {
+      await tester.pumpWidget(host(Column(children: ['a'.text.xl.size(20).make(), 'b'.text.size(20).xl.make()])));
+
+      expect(tester.widget<Text>(find.text('a')).style?.fontSize, 25);
+      expect(tester.widget<Text>(find.text('b')).style?.fontSize, 25);
+    });
+
+    testWidgets('the deprecated auto-size modifiers still compile and change nothing', (tester) async {
+      await tester.pumpWidget(
+        host(
+          'Legacy'.text
+              .size(11)
+              // ignore: deprecated_member_use_from_same_package
+              .isIntrinsic
+              // ignore: deprecated_member_use_from_same_package
+              .minFontSize(8)
+              // ignore: deprecated_member_use_from_same_package
+              .maxFontSize(30)
+              // ignore: deprecated_member_use_from_same_package
+              .stepGranularity(0.5)
+              // ignore: deprecated_member_use_from_same_package
+              .wrapWords(false)
+              // ignore: deprecated_member_use_from_same_package
+              .overflowReplacement(const Text('replacement'))
+              .make(),
+          width: 20,
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text('Legacy')).style?.fontSize, 11);
+      expect(find.text('replacement'), findsNothing);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // GroupedDigitsInputFormatterX
+  // ──────────────────────────────────────────────
+  group('GroupedDigitsInputFormatterX', () {
+    const cnic = GroupedDigitsInputFormatterX.cnic();
+
+    TextEditingValue edit(TextInputFormatter formatter, String oldText, String newText, int caret) => formatter.formatEditUpdate(
+          TextEditingValue(text: oldText, selection: TextSelection.collapsed(offset: oldText.length)),
+          TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: caret)),
+        );
+
+    test('format groups digits, drops everything else, and stops at the last group', () {
+      expect(cnic.format('3520212345671'), '35202-1234567-1');
+      expect(cnic.format('35202 1234567 1'), '35202-1234567-1');
+      expect(cnic.format('352021234567199'), '35202-1234567-1');
+      expect(cnic.format('3520'), '3520');
+      expect(cnic.format('352021'), '35202-1');
+      expect(const GroupedDigitsInputFormatterX.pkMobile().format('03001234567'), '0300-1234567');
+      expect(const GroupedDigitsInputFormatterX(groupLengths: [4, 4, 4, 4], separator: ' ').format('4111111111111111'), '4111 1111 1111 1111');
+    });
+
+    test('typing digit by digit inserts the separators', () {
+      var value = TextEditingValue.empty;
+      for (final digit in '3520212345671'.split('')) {
+        value = cnic.formatEditUpdate(
+          value,
+          TextEditingValue(text: value.text + digit, selection: TextSelection.collapsed(offset: value.text.length + 1)),
+        );
+      }
+      expect(value.text, '35202-1234567-1');
+      expect(value.selection.extentOffset, value.text.length);
+    });
+
+    test('a digit typed mid-number keeps the caret beside it', () {
+      final result = edit(cnic, '35202-123', '359202-123', 3);
+      expect(result.text, '35920-2123');
+      expect(result.selection.extentOffset, 3);
+    });
+
+    test('backspacing over a separator deletes the digit before it', () {
+      final result = edit(cnic, '35202-123', '35202123', 5);
+      expect(result.text, '35201-23');
+      expect(result.selection.extentOffset, 4);
+    });
+
+    test('forward-deleting a separator deletes the digit after it', () {
+      final result = cnic.formatEditUpdate(
+        const TextEditingValue(text: '35202-1234567-1', selection: TextSelection.collapsed(offset: 5)),
+        const TextEditingValue(text: '352021234567-1', selection: TextSelection.collapsed(offset: 5)),
+      );
+      expect(result.text, '35202-2345671');
+      expect(result.selection.extentOffset, 5);
+    });
+
+    test('deleting a selection that held only a separator deletes no digit', () {
+      final result = cnic.formatEditUpdate(
+        const TextEditingValue(text: '35202-123', selection: TextSelection(baseOffset: 5, extentOffset: 6)),
+        const TextEditingValue(text: '35202123', selection: TextSelection.collapsed(offset: 5)),
+      );
+      expect(result.text, '35202-123');
+    });
+
+    test('a pasted, already-formatted CNIC is kept as is', () {
+      final result = edit(cnic, '', '35202-1234567-1', 15);
+      expect(result.text, '35202-1234567-1');
+      expect(result.selection.extentOffset, 15);
+    });
+
+    test('maxDigits is the sum of the groups', () {
+      expect(cnic.maxDigits, 13);
+      expect(const GroupedDigitsInputFormatterX.pkMobile().maxDigits, 11);
+    });
+  });
+
+  group('StringExtension ifBlank', () {
+    test('returns the fallback for null, empty, and whitespace-only strings', () {
+      expect((null as String?).ifBlank('N/A'), 'N/A');
+      expect(''.ifBlank('N/A'), 'N/A');
+      expect('  \n\t'.ifBlank('N/A'), 'N/A');
+    });
+
+    test('returns the string unchanged otherwise, surrounding whitespace included', () {
+      expect('Ali'.ifBlank('N/A'), 'Ali');
+      expect(' Ali '.ifBlank('N/A'), ' Ali ');
+    });
+  });
+
+  group('StringExtension CNIC', () {
+    test('formatCnic groups 13 digits and leaves anything else unchanged', () {
+      expect('3520212345671'.formatCnic, '35202-1234567-1');
+      expect('35202-1234567-1'.formatCnic, '35202-1234567-1');
+      expect('35202 1234567 1'.formatCnic, '35202-1234567-1');
+      expect('12345'.formatCnic, '12345');
+      expect((null as String?).formatCnic, '');
+    });
+
+    test('isCnic accepts the dashed and the bare form only', () {
+      expect('35202-1234567-1'.isCnic, isTrue);
+      expect('3520212345671'.isCnic, isTrue);
+      expect('35202-12345671'.isCnic, isFalse);
+      expect('352021234567'.isCnic, isFalse);
+      expect((null as String?).isCnic, isFalse);
+    });
+  });
+
+  group('TextFieldWidgetx FieldTypeX.cnic', () {
+    testWidgets('formats as the user types and validates the full CNIC', (tester) async {
+      final formKey = GlobalKey<FormState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Form(key: formKey, child: const TextFieldWidgetx(label: 'CNIC', type: FieldTypeX.cnic)),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), '352021234');
+      expect(find.text('35202-1234'), findsOneWidget);
+      expect(formKey.currentState!.validate(), isFalse);
+      await tester.pump();
+      expect(find.text(defaultFieldInvalidCnicMessageGlobal), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '3520212345671');
+      expect(find.text('35202-1234567-1'), findsOneWidget);
+      expect(formKey.currentState!.validate(), isTrue);
+    });
+
+    testWidgets('uses the numeric keyboard', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: TextFieldWidgetx(label: 'CNIC', type: FieldTypeX.cnic))));
+      expect(tester.widget<TextField>(find.byType(TextField)).keyboardType, TextInputType.number);
+    });
+  });
+
+  group('StringExtension fixes', () {
+    test('isInt is false for null instead of throwing', () {
+      const String? value = null;
+      expect(value.isInt, isFalse);
+      expect('42'.isInt, isTrue);
+    });
+
+    test('pattern checks are false for null instead of throwing', () {
+      const String? value = null;
+      expect(value.validateEmail(), isFalse);
+      expect(value.isPdf, isFalse);
+    });
+
+    test('toIntX parses negatives and falls back on overflow and non-decimal input', () {
+      expect('-5'.toIntX(), -5);
+      expect('42'.toIntX(), 42);
+      expect('99999999999999999999'.toIntX(defaultValue: -1), -1);
+      expect('0x10'.toIntX(), 0);
+      expect('abc'.toIntX(defaultValue: 7), 7);
+      expect((null as String?).toIntX(defaultValue: 3), 3);
+    });
+
+    test('repeat throws for a negative count', () {
+      expect(() => 'a'.repeat(-1), throwsArgumentError);
+      expect('a'.repeat(0), '');
+      expect('ab'.repeat(3, separator: '-'), 'ab-ab-ab');
+    });
+  });
+
+  group('WidgetX.toPngBytes', () {
+    // PNG stores the width and height big-endian at bytes 16–23 of the IHDR chunk.
+    Size pngSize(Uint8List bytes) {
+      final data = ByteData.sublistView(bytes);
+      return Size(data.getUint32(16).toDouble(), data.getUint32(20).toDouble());
+    }
+
+    testWidgets('returns a PNG sized to the widget times the pixel ratio', (tester) async {
+      final bytes = await tester.runAsync(
+        () => const SizedBox(width: 40, height: 20, child: ColoredBox(color: Colors.red)).toPngBytes(
+          view: tester.view,
+          pixelRatio: 2,
+          waitToRender: Duration.zero,
+        ),
+      );
+
+      expect(bytes!.sublist(0, 8), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      expect(pngSize(bytes), const Size(80, 40));
+    });
+
+    testWidgets('disposes the off-screen tree after the capture', (tester) async {
+      var disposed = false;
+      await tester.runAsync(
+        () => _DisposeProbe(onDispose: () => disposed = true).toPngBytes(view: tester.view, waitToRender: Duration.zero),
+      );
+      expect(disposed, isTrue);
+    });
+
+    testWidgets('builds the widget at the capture pixel ratio so assets resolve to the right variant', (tester) async {
+      double? seen;
+      await tester.runAsync(
+        () => Builder(
+          builder: (context) {
+            seen = MediaQuery.devicePixelRatioOf(context);
+            return const SizedBox(width: 10, height: 10);
+          },
+        ).toPngBytes(view: tester.view, pixelRatio: 3, waitToRender: Duration.zero),
+      );
+      expect(seen, 3);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // DateTimeExt.format / DurationX.toClock
+  // ──────────────────────────────────────────────
+  group('DateTimeExt format', () {
+    final afternoon = DateTime(2026, 3, 5, 14, 5, 7, 42); // a Thursday
+
+    test('S tokens give one fractional-second digit each, padded past microseconds', () {
+      final time = DateTime(2026, 1, 1, 0, 0, 0, 5, 7);
+      expect(time.format('S'), '0');
+      expect(time.format('SSS'), '005');
+      expect(time.format('SSSS'), '0050');
+      expect(time.format('SSSSSS'), '005007');
+      expect(time.format('SSSSSSS'), '0050070');
+    });
+
+    test('formats the patterns the apps use with intl today', () {
+      expect(afternoon.format('d MMM yyyy'), '5 Mar 2026');
+      expect(afternoon.format('d MMM, h:mm a'), '5 Mar, 2:05 PM');
+      expect(afternoon.format('hh:mm a'), '02:05 PM');
+      expect(afternoon.format('EEE, d MMM yyyy'), 'Thu, 5 Mar 2026');
+      expect(afternoon.format('yyyy-MM-dd'), '2026-03-05');
+    });
+
+    test('supports every token', () {
+      expect(afternoon.format('yyyy yy y'), '2026 26 2026');
+      expect(afternoon.format('MMMM MMM MM M'), 'March Mar 03 3');
+      expect(afternoon.format('dd d'), '05 5');
+      expect(afternoon.format('EEEE EEE'), 'Thursday Thu');
+      expect(afternoon.format('HH H hh h'), '14 14 02 2');
+      expect(afternoon.format('mm m ss s'), '05 5 07 7');
+      expect(afternoon.format('HH:mm:ss.SSS'), '14:05:07.042');
+    });
+
+    test('uses 12 for midnight and noon on the 12-hour clock', () {
+      expect(DateTime(2026, 1, 1, 0, 30).format('h:mm a'), '12:30 AM');
+      expect(DateTime(2026, 1, 1, 12, 30).format('h:mm a'), '12:30 PM');
+      expect(DateTime(2026, 1, 1, 23, 59).format('h:mm a'), '11:59 PM');
+    });
+
+    test('copies quoted text literally and turns two quotes into one', () {
+      expect(afternoon.format("d MMM 'at' h a"), '5 Mar at 2 PM');
+      expect(afternoon.format("h 'o''clock'"), "2 o'clock");
+      expect(afternoon.format("h''"), "2'");
+    });
+
+    test('copies characters that are not tokens as is', () {
+      expect(afternoon.format('dd/MM/yyyy - HH:mm'), '05/03/2026 - 14:05');
+    });
+  });
+
+  group('DurationX toClock', () {
+    test('shows minutes and seconds under an hour', () {
+      expect(Duration.zero.toClock(), '00:00');
+      expect(const Duration(seconds: 9).toClock(), '00:09');
+      expect(const Duration(minutes: 4, seconds: 59).toClock(), '04:59');
+    });
+
+    test('adds unpadded hours from one hour up, days included', () {
+      expect(const Duration(hours: 1, minutes: 4, seconds: 59).toClock(), '1:04:59');
+      expect(const Duration(days: 1, hours: 2).toClock(), '26:00:00');
+    });
+
+    test('prefixes a negative duration with a minus sign', () {
+      expect(const Duration(seconds: -75).toClock(), '-01:15');
+    });
+  });
+
+  group('CountdownTimerWidgetx', () {
+    testWidgets('counts down as a clock and shows 00:00 when finished', (tester) async {
+      var finished = false;
+      await tester.pumpWidget(
+        MaterialApp(home: CountdownTimerWidgetx(duration: const Duration(seconds: 2), onFinished: () => finished = true)),
+      );
+      expect(find.text('00:02'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('00:01'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('00:00'), findsOneWidget);
+      expect(finished, isTrue);
+    });
+  });
+
+  // ──────────────────────────────────────────────
+  // Core extension fixes
+  // ──────────────────────────────────────────────
+  {
+    group('StringExtension edge cases', () {
+      test('maskEmail leaves an address with an empty name part unchanged', () {
+        expect('@example.com'.maskEmail(isMaskingEnabled: true), '@example.com');
+        expect('@example.com'.mask(maskType: MaskType.email, isMaskingEnabled: true), '@example.com');
+      });
+
+      test('ellipsize never throws when maxLength is shorter than the ellipsis', () {
+        expect('hello'.ellipsize(2), '..');
+        expect('hello'.ellipsize(0), '');
+        expect('hello'.ellipsize(3), '...');
+        expect('hello world'.ellipsize(8), 'hello...');
+      });
+
+      test('splitAfter and splitBetween are null-safe', () {
+        const String? value = null;
+        expect(value.splitAfter('x'), '');
+        expect(value.splitBetween('[', ']'), '');
+      });
+
+      test('splitBetween stops at the first end match after the start', () {
+        expect('a[b]c[d]e'.splitBetween('[', ']'), 'b');
+        expect('[hello]'.splitBetween('[', ']'), 'hello');
+        expect('[hello'.splitBetween('[', ']'), '');
+      });
+
+      test('case converters do not double separators and keep acronyms together', () {
+        expect('Hello World'.toSnakeCase(), 'hello_world');
+        expect('hello World'.toSnakeCase(), 'hello_world');
+        expect('Hello World'.toKebabCase(), 'hello-world');
+        expect('userID'.toSnakeCase(), 'user_id');
+        expect('XMLHttpRequest'.toSnakeCase(), 'xml_http_request');
+        expect('HELLO_WORLD'.toCamelCase(), 'helloWorld');
+        expect('helloWorld'.toPascalCase(), 'HelloWorld');
+        expect('version2 api'.toCamelCase(), 'version2Api');
+      });
+
+      test('formatNumberWithComma groups only the integer part', () {
+        expect('1234.5678'.formatNumberWithComma(), '1,234.5678');
+        expect('1234567'.formatNumberWithComma(), '1,234,567');
+      });
+
+      test('countWords is zero for empty and null strings', () {
+        const String? value = null;
+        expect(''.countWords(), 0);
+        expect('   '.countWords(), 0);
+        expect(value.countWords(), 0);
+        expect(''.calculateReadTime(), 0);
+      });
+
+      test('reverse keeps whitespace and surrogate pairs', () {
+        expect(' ab'.reverse, 'ba ');
+        expect('😀a'.reverse, 'a😀');
+      });
+
+      test('prefixText and suffixText treat null as empty', () {
+        const String? value = null;
+        expect(value.prefixText(value: 'Dr. '), 'Dr. ');
+        expect(value.suffixText(value: ' /-'), ' /-');
+      });
+
+      test('removeAllWhiteSpace removes trailing and repeated whitespace', () {
+        expect('a  '.removeAllWhiteSpace(), 'a');
+        expect(' a \t b\n'.removeAllWhiteSpace(), 'ab');
+      });
+
+      test('file-type checks need a real extension and ignore case', () {
+        expect('notajpg'.isImage, isFalse);
+        expect('mypdf'.isPdf, isFalse);
+        expect('IMG_001.JPG'.isImage, isTrue);
+        expect('Report.PDF'.isPdf, isTrue);
+        expect('index.htm'.isHtml, isTrue);
+      });
+    });
+
+    group('Patterns', () {
+      bool matches(String pattern, String input) => RegExp(pattern).hasMatch(input);
+
+      test('email accepts hyphenated domains and rejects junk', () {
+        expect('user@my-company.com'.validateEmail(), isTrue);
+        expect('first.last+tag@mail.example.co.uk'.validateEmail(), isTrue);
+        expect('a,b@x.com'.validateEmail(), isFalse);
+        expect('a@b.com junk!!'.validateEmail(), isFalse);
+        expect('not-an-email'.validateEmail(), isFalse);
+      });
+
+      test('emailEnhanced is anchored and accepts upper case', () {
+        expect('User@Example.com'.validateEmailEnhanced(), isTrue);
+        expect('not an email a@b.co here'.validateEmailEnhanced(), isFalse);
+      });
+
+      test('url accepts localhost and IPv4 hosts', () {
+        expect(matches(Patterns.url, 'http://localhost:8080'), isTrue);
+        expect(matches(Patterns.url, 'http://192.168.1.1/api'), isTrue);
+        expect(matches(Patterns.url, 'https://example.com/path?q=1'), isTrue);
+        expect(matches(Patterns.url, 'https://nodot'), isFalse);
+      });
+
+      test('creditCard accepts 2-series Mastercard', () {
+        expect(matches(Patterns.creditCard, '2221000000000009'), isTrue);
+        expect(matches(Patterns.creditCard, '2720990000000000'), isTrue);
+        expect(matches(Patterns.creditCard, '5555555555554444'), isTrue);
+        expect(matches(Patterns.creditCard, '2721000000000000'), isFalse);
+      });
+    });
+
+    group('DateTimeExt edge cases', () {
+      test('timeAgo describes a future moment as "in …"', () {
+        expect(DateTime.now().add(const Duration(days: 3, minutes: 1)).timeAgo, 'in 3 days');
+        expect(DateTime.now().subtract(const Duration(days: 3, minutes: 1)).timeAgo, '3 days ago');
+      });
+
+      test('startOfWeek and endOfWeek use calendar days', () {
+        final sunday = DateTime(2026, 11, 1, 23, 30);
+        expect(sunday.startOfWeek, DateTime(2026, 10, 26));
+        expect(sunday.endOfWeek, DateTime(2026, 11, 1, 23, 59, 59, 999));
+      });
+
+      test('shiftDaysX keeps the wall-clock time and the UTC flag', () {
+        expect(DateTime(2026, 3, 7, 12).shiftDaysX(1), DateTime(2026, 3, 8, 12));
+        expect(DateTime(2026, 1, 31, 9).addDays(1), DateTime(2026, 2, 1, 9));
+        expect(DateTime(2026, 3, 1, 9).subtractDays(1), DateTime(2026, 2, 28, 9));
+        expect(DateTime.utc(2026, 1, 1).shiftDaysX(1).isUtc, isTrue);
+      });
+    });
+
+    group('NumX edge cases', () {
+      test('ordinal handles negative numbers', () {
+        expect((-1).ordinal, '-1st');
+        expect((-2).ordinal, '-2nd');
+        expect((-11).ordinal, '-11th');
+      });
+
+      test('daysAgo keeps the time of day', () {
+        final now = DateTime.now();
+        final then = 1.daysAgo;
+        expect(then.hour, now.hour);
+        expect(then.isYesterday, isTrue);
+        expect(1.daysFromNow.isTomorrow, isTrue);
+      });
+    });
+
+    group('DurationX edge cases', () {
+      test('format signs negative durations', () {
+        expect(const Duration(hours: -2).format(), '-2h');
+        expect(const Duration(minutes: -1, seconds: -5).format(), '-1m 5s');
+      });
+
+      test('the built-in * still scales by a double', () {
+        expect(const Duration(seconds: 10) * 2.5, const Duration(seconds: 25));
+      });
+    });
+
+    group('ColorX edge cases', () {
+      test('toHex is upper case as documented', () {
+        expect(const Color(0xFF2196F3).toHex(), '#2196F3');
+        expect(const Color(0xFF2196F3).toHex(includeAlpha: true, leadingHash: false), 'FF2196F3');
+      });
+    });
+
+    group('MapX edge cases', () {
+      test('getOrDefault returns a stored null instead of the default', () {
+        final map = <String, int?>{'a': null};
+        expect(map.getOrDefault('a', 1), isNull);
+        expect(map.getOrDefault('b', 1), 1);
+      });
+    });
+
+    group('AsyncBuilderWidgetx retry', () {
+      testWidgets('onRefresh fires only after a successful retry', (tester) async {
+        var refreshed = 0;
+        var fail = true;
+        final key = GlobalKey<AsyncBuilderWidgetxState<int>>();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AsyncBuilderWidgetx<int>(
+              key: key,
+              future: () async => fail ? throw Exception('x') : 1,
+              onRefresh: () => refreshed++,
+              builder: (context, value) => Text('$value'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        key.currentState!.retry();
+        await tester.pumpAndSettle();
+        expect(refreshed, 0);
+
+        fail = false;
+        key.currentState!.retry();
+        expect(refreshed, 0);
+        await tester.pumpAndSettle();
+        expect(refreshed, 1);
+      });
+    });
+
+    group('PaginatedListWidgetx controller swap', () {
+      testWidgets('dropping a caller controller falls back to the fetcher and leaves the controller alive', (tester) async {
+        final paginator = PaginatorX<String>.simple(fetch: (_) async => ['from controller']);
+        addTearDown(paginator.dispose);
+
+        Widget list({PaginatorX<String>? controller}) => MaterialApp(
+              home: Scaffold(
+                body: PaginatedListWidgetx<String>(
+                  controller: controller,
+                  fetchItems: controller == null ? (_) async => ['from fetcher'] : null,
+                  itemBuilder: (context, item, index) => Text(item),
+                ),
+              ),
+            );
+
+        await tester.pumpWidget(list(controller: paginator));
+        await tester.pumpAndSettle();
+        expect(find.text('from controller'), findsOneWidget);
+
+        await tester.pumpWidget(list());
+        await tester.pumpAndSettle();
+        expect(find.text('from fetcher'), findsOneWidget);
+
+        // Still usable: the widget did not dispose the caller's controller.
+        await paginator.refresh();
+        expect(paginator.items, ['from controller']);
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // UI and collection extension fixes
+  // ──────────────────────────────────────────────
+  {
+    // ──────────────────────────────────────────────
+    // ScrollxExtensions
+    // ──────────────────────────────────────────────
+    group('ScrollxExtensions', () {
+      Widget list(ScrollController c, {Key? key, int count = 100}) => SizedBox(
+            key: key,
+            height: 200,
+            child: ListView.builder(controller: c, itemCount: count, itemBuilder: (_, i) => SizedBox(height: 50, child: Text('$i'))),
+          );
+
+      test('animateToBottom / animateToTop are no-ops on an unattached controller', () async {
+        final c = ScrollController();
+        addTearDown(c.dispose);
+        await c.animateToBottom();
+        await c.animateToTop();
+        c.jumpToBottom();
+        c.jumpToTop();
+        expect(c.isAtTop, isFalse);
+        expect(c.scrollPercentage, 0.0);
+      });
+
+      testWidgets('members work on a controller attached to two scroll views', (tester) async {
+        final c = ScrollController();
+        addTearDown(c.dispose);
+        await tester.pumpWidget(MaterialApp(home: Scaffold(body: Column(children: [list(c), list(c, count: 50)]))));
+        expect(c.positions.length, 2);
+
+        expect(c.isAtTop, isTrue);
+        expect(c.isAtBottom, isFalse);
+        expect(c.isNearTop(), isTrue);
+        expect(c.isNearBottom(), isFalse);
+        expect(c.canScroll, isTrue);
+        expect(c.scrollPercentage, 0.0);
+
+        c.jumpToBottom();
+        await tester.pump();
+        for (final p in c.positions) {
+          expect(p.pixels, p.maxScrollExtent, reason: 'each view goes to its own bottom');
+        }
+        expect(c.isAtBottom, isTrue);
+        expect(c.scrollPercentage, 1.0);
+
+        c.jumpToTop();
+        await tester.pump();
+        expect(c.isAtTop, isTrue);
+
+        final done = c.animateToBottom(duration: const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        await done;
+        for (final p in c.positions) {
+          expect(p.pixels, p.maxScrollExtent);
+        }
+
+        final back = c.animateToTop(duration: const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+        await back;
+        expect(c.positions.every((p) => p.pixels == p.minScrollExtent), isTrue);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // VxTextBuilder
+    // ──────────────────────────────────────────────
+    group('VxTextBuilder', () {
+      Widget host(Widget child) => MaterialApp(home: Scaffold(body: Align(alignment: Alignment.topLeft, child: SizedBox(width: 400, child: child))));
+
+      testWidgets('make leaves softWrap and overflow to DefaultTextStyle when unset', (tester) async {
+        await tester.pumpWidget(
+          host(
+            DefaultTextStyle(
+              style: const TextStyle(fontSize: 14),
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              child: 'A title'.text.make(),
+            ),
+          ),
+        );
+        final text = tester.widget<Text>(find.text('A title'));
+        expect(text.softWrap, isNull);
+        expect(text.overflow, isNull);
+        final rich = tester.widget<RichText>(find.byType(RichText));
+        expect(rich.softWrap, isFalse);
+        expect(rich.overflow, TextOverflow.ellipsis);
+      });
+
+      testWidgets('make still applies softWrap and overflow when set', (tester) async {
+        await tester.pumpWidget(host('A title'.text.softWrap(false).fade.make()));
+        final text = tester.widget<Text>(find.text('A title'));
+        expect(text.softWrap, isFalse);
+        expect(text.overflow, TextOverflow.fade);
+      });
+
+      testWidgets('size presets scale the themed font size, not a fixed 14', (tester) async {
+        late Widget built;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(builder: (ctx) {
+              built = 'x'.text.titleLarge(ctx).xl.make();
+              return Scaffold(body: built);
+            }),
+          ),
+        );
+        final ctx = tester.element(find.byType(Scaffold));
+        final themed = Theme.of(ctx).textTheme.titleLarge!.fontSize!;
+        expect(tester.widget<Text>(find.text('x')).style?.fontSize, themed * 1.25);
+      });
+
+      testWidgets('size presets scale the source Text style font size', (tester) async {
+        await tester.pumpWidget(host(const Text('y', style: TextStyle(fontSize: 20)).text.xl2.make()));
+        expect(tester.widget<Text>(find.text('y')).style?.fontSize, 30);
+      });
+
+      testWidgets('an explicit size still wins over the themed size for presets', (tester) async {
+        late Widget built;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(builder: (ctx) {
+              built = 'z'.text.titleLarge(ctx).size(10).xl2.make();
+              return Scaffold(body: built);
+            }),
+          ),
+        );
+        expect(tester.widget<Text>(find.text('z')).style?.fontSize, 15);
+      });
+
+      testWidgets('a zero-blur shadow is kept', (tester) async {
+        await tester.pumpWidget(host('s'.text.shadow(2, 2, 0, Colors.red).make()));
+        final shadows = tester.widget<Text>(find.text('s')).style?.shadows;
+        expect(shadows, hasLength(1));
+        expect(shadows!.single.offset, const Offset(2, 2));
+        expect(shadows.single.blurRadius, 0);
+        expect(shadows.single.color, Colors.red);
+      });
+
+      testWidgets('no shadow setter means no shadows', (tester) async {
+        await tester.pumpWidget(host('n'.text.make()));
+        expect(tester.widget<Text>(find.text('n')).style?.shadows, isNull);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // VxTextExtensions
+    // ──────────────────────────────────────────────
+    group('VxTextExtensions', () {
+      Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
+
+      testWidgets('when(false) on a builder from an existing Text renders nothing', (tester) async {
+        await tester.pumpWidget(host(const Text('hidden').text.when(false).make()));
+        expect(find.text('hidden'), findsNothing);
+        await tester.pumpWidget(host(const Text('shown').text.when(true).make()));
+        expect(find.text('shown'), findsOneWidget);
+      });
+
+      testWidgets('VxTextBuilder.existing supports when()', (tester) async {
+        await tester.pumpWidget(host(VxTextBuilder.existing('old', null).when(false).make()));
+        expect(find.text('old'), findsNothing);
+      });
+
+      testWidgets('Text.rich converts and keeps its span', (tester) async {
+        const source = Text.rich(TextSpan(text: 'Hello ', children: [TextSpan(text: 'world')]));
+        await tester.pumpWidget(host(source.text.bold.make()));
+        final text = tester.widget<Text>(find.byType(Text));
+        expect(text.textSpan?.toPlainText(), 'Hello world');
+        expect(text.style?.fontWeight, FontWeight.w700);
+        expect(find.text('Hello world', findRichText: true), findsOneWidget);
+      });
+
+      testWidgets('the source Text settings carry into the builder', (tester) async {
+        const strut = StrutStyle(fontSize: 12);
+        const source = Text(
+          'carried',
+          key: ValueKey('src'),
+          maxLines: 2,
+          textAlign: TextAlign.end,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          strutStyle: strut,
+          semanticsLabel: 'label',
+          textDirection: TextDirection.rtl,
+        );
+        await tester.pumpWidget(host(source.text.make()));
+        final text = tester.widget<Text>(find.byKey(const ValueKey('src')));
+        expect(text.maxLines, 2);
+        expect(text.textAlign, TextAlign.end);
+        expect(text.overflow, TextOverflow.ellipsis);
+        expect(text.softWrap, isFalse);
+        expect(text.strutStyle, strut);
+        expect(text.semanticsLabel, 'label');
+        expect(text.textDirection, TextDirection.rtl);
+      });
+
+      testWidgets('builder setters still override carried settings', (tester) async {
+        const source = Text('o', maxLines: 2, textAlign: TextAlign.end);
+        await tester.pumpWidget(host(source.text.maxLines(1).center.make(key: const ValueKey('new'))));
+        final text = tester.widget<Text>(find.byKey(const ValueKey('new')));
+        expect(text.maxLines, 1);
+        expect(text.textAlign, TextAlign.center);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // ContextX
+    // ──────────────────────────────────────────────
+    group('ContextX', () {
+      Future<void> openPicker(WidgetTester tester, Future<DateTime?> Function(BuildContext ctx) pick) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (ctx) => Scaffold(body: ElevatedButton(onPressed: () => pick(ctx), child: const Text('open'))),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('pickDate clamps the default initialDate to a past lastDate', (tester) async {
+        await openPicker(tester, (ctx) => ctx.pickDate(firstDate: DateTime(1950), lastDate: DateTime(2000, 6, 15)));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DatePickerDialog), findsOneWidget);
+        expect(tester.widget<DatePickerDialog>(find.byType(DatePickerDialog)).initialDate, DateTime(2000, 6, 15));
+      });
+
+      testWidgets('pickDate clamps the default initialDate to a future firstDate', (tester) async {
+        final first = DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 40));
+        await openPicker(tester, (ctx) => ctx.pickDate(firstDate: first, lastDate: first.add(const Duration(days: 400))));
+        expect(tester.takeException(), isNull);
+        expect(tester.widget<DatePickerDialog>(find.byType(DatePickerDialog)).initialDate, first);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // ListSplit
+    // ──────────────────────────────────────────────
+    group('ListSplit', () {
+      test('chunked with size <= 0 returns a copy, not the receiver', () {
+        final source = [1, 2, 3];
+        final chunks = source.chunked(0);
+        expect(chunks, [
+          [1, 2, 3],
+        ]);
+        expect(identical(chunks.single, source), isFalse);
+        chunks.single.add(4);
+        expect(source, [1, 2, 3]);
+      });
+
+      test('chunked with size <= 0 on an empty list returns no chunks', () {
+        expect(<int>[].chunked(0), isEmpty);
+        expect(<int>[].chunked(-1), isEmpty);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // IterableAsyncX
+    // ──────────────────────────────────────────────
+    group('IterableAsyncX', () {
+      test('mapParallel throws ArgumentError for a non-positive concurrency', () async {
+        await expectLater([1, 2].mapParallel((e) async => e, concurrency: 0), throwsArgumentError);
+        await expectLater([1, 2].mapParallel((e) async => e, concurrency: -3), throwsArgumentError);
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // Form and stateful widget fixes
+  // ──────────────────────────────────────────────
+  {
+    Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
+    group('AsyncBuilderWidgetx', () {
+      testWidgets('a rebuild with a fresh closure does not refire the future', (tester) async {
+        var calls = 0;
+        Future<String> fetch() async {
+          calls++;
+          return 'value';
+        }
+
+        // The documented form: a new closure on every build.
+        await tester.pumpWidget(host(AsyncBuilderWidgetx<String>(future: () => fetch(), builder: (_, d) => Text(d))));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(host(AsyncBuilderWidgetx<String>(future: () => fetch(), builder: (_, d) => Text(d))));
+        await tester.pumpAndSettle();
+
+        expect(calls, 1);
+        expect(find.text('value'), findsOneWidget);
+      });
+
+      testWidgets('a failed refresh with no prior data does not throw', (tester) async {
+        var calls = 0;
+        var refreshed = 0;
+        Future<String> fetch() async {
+          calls++;
+          throw StateError('down');
+        }
+
+        await tester.pumpWidget(
+          host(AsyncBuilderWidgetx<String>(future: fetch, enableRefresh: true, onRefresh: () => refreshed++, builder: (_, d) => Text(d))),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(defaultAsyncErrorTitleGlobal), findsOneWidget);
+
+        await tester.fling(find.byType(SingleChildScrollView), const Offset(0, 400), 1000);
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(calls, 2);
+        expect(refreshed, 0);
+        expect(find.text(defaultAsyncErrorTitleGlobal), findsOneWidget);
+      });
+
+      testWidgets('keepPreviousData false shows loading after a reloadOn change', (tester) async {
+        final first = Completer<String>();
+        final second = Completer<String>();
+        final pending = [first, second];
+        Future<String> fetch() => pending.removeAt(0).future;
+
+        await tester.pumpWidget(host(AsyncBuilderWidgetx<String>(future: fetch, reloadOn: 1, builder: (_, d) => Text(d))));
+        first.complete('one');
+        await tester.pump();
+        expect(find.text('one'), findsOneWidget);
+
+        await tester.pumpWidget(host(AsyncBuilderWidgetx<String>(future: fetch, reloadOn: 2, builder: (_, d) => Text(d))));
+        expect(find.text('one'), findsNothing);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        second.complete('two');
+        await tester.pump();
+        expect(find.text('two'), findsOneWidget);
+      });
+    });
+
+    group('QuantityStepperWidgetx', () {
+      testWidgets('holding minus stops at min and never calls onRemove', (tester) async {
+        var value = 4;
+        var removes = 0;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) => Center(
+                child: QuantityStepperWidgetx(
+                  value: value,
+                  min: 1,
+                  onChanged: (v) => setState(() => value = v),
+                  onRemove: () => removes++,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final gesture = await tester.startGesture(tester.getCenter(find.byIcon(Icons.remove_rounded)));
+        await tester.pump(const Duration(milliseconds: 600));
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(milliseconds: 90));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(value, 1);
+        expect(removes, 0);
+      });
+
+      testWidgets('resyncs to the value the parent keeps passing', (tester) async {
+        Widget build() => host(Center(child: QuantityStepperWidgetx(value: 3, onChanged: (_) {})));
+
+        await tester.pumpWidget(build());
+        await tester.tap(find.byIcon(Icons.add_rounded));
+        await tester.pump();
+        // The parent rejected the change and rebuilds with the same value.
+        await tester.pumpWidget(build());
+
+        expect(find.text('3'), findsOneWidget);
+        expect(find.text('4'), findsNothing);
+      });
+    });
+
+    group('SearchBarWidgetx', () {
+      testWidgets('a caller controller changed after unmount does not throw', (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(host(SearchBarWidgetx(controller: controller)));
+        await tester.pumpWidget(host(const SizedBox()));
+
+        controller.text = 'after';
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a selection-only change does not fire onChanged or onSearch', (tester) async {
+        final controller = TextEditingController(text: 'abc');
+        addTearDown(controller.dispose);
+        var changed = 0;
+        var searched = 0;
+        await tester.pumpWidget(host(SearchBarWidgetx(controller: controller, onChanged: (_) => changed++, onSearch: (_) => searched++)));
+
+        controller.selection = const TextSelection.collapsed(offset: 1);
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(changed, 0);
+        expect(searched, 0);
+      });
+
+      testWidgets('clear fires onSearch once with an empty query', (tester) async {
+        final searches = <String>[];
+        await tester.pumpWidget(host(SearchBarWidgetx(onSearch: searches.add)));
+        await tester.enterText(find.byType(TextField), 'abc');
+        await tester.pump(const Duration(seconds: 1));
+        expect(searches, ['abc']);
+        searches.clear();
+
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(searches, ['']);
+      });
+
+      testWidgets('shows the clear button for pre-filled controller text', (tester) async {
+        final controller = TextEditingController(text: 'prefilled');
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(host(SearchBarWidgetx(controller: controller)));
+
+        expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      });
+
+      testWidgets('a swapped controller is listened to and the old one released', (tester) async {
+        final a = TextEditingController();
+        final b = TextEditingController();
+        addTearDown(a.dispose);
+        addTearDown(b.dispose);
+        final changes = <String>[];
+        await tester.pumpWidget(host(SearchBarWidgetx(controller: a, onChanged: changes.add)));
+        await tester.pumpWidget(host(SearchBarWidgetx(controller: b, onChanged: changes.add)));
+
+        a.text = 'old';
+        b.text = 'new';
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(changes, ['new']);
+      });
+    });
+
+    group('TextFieldWidgetx', () {
+      testWidgets('dropping a caller controller and focus node falls back to owned ones', (tester) async {
+        final controller = TextEditingController(text: 'kept');
+        final node = FocusNode();
+        addTearDown(controller.dispose);
+        addTearDown(node.dispose);
+
+        await tester.pumpWidget(host(TextFieldWidgetx<String>(controller: controller, focusNode: node)));
+        await tester.pumpWidget(host(const TextFieldWidgetx<String>()));
+        expect(tester.takeException(), isNull);
+        expect(find.text('kept'), findsOneWidget);
+
+        // Back to the caller's — which must not have been disposed.
+        await tester.pumpWidget(host(TextFieldWidgetx<String>(controller: controller, focusNode: node)));
+        await tester.pumpWidget(host(const SizedBox()));
+        controller.text = 'still alive';
+        node.addListener(() {});
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('dropping a form falls back to an owned controller', (tester) async {
+        final form = FormX<String>(['name']);
+        addTearDown(form.dispose);
+        form.fill({'name': 'Ali'});
+
+        await tester.pumpWidget(host(TextFieldWidgetx<String>(form: form, fieldKey: 'name')));
+        await tester.pumpWidget(host(const TextFieldWidgetx<String>()));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(host(const SizedBox()));
+
+        form['name'].text = 'Bilal';
+        expect(form.value('name'), 'Bilal');
+      });
+    });
+
+    group('PaginatedListWidgetx', () {
+      Widget list(String query, List<String> calls, {Object? reloadOn}) => host(
+        PaginatedListWidgetx<String>(
+          fetchItems: (page) async {
+            calls.add('$query-$page');
+            return ['$query-$page'];
+          },
+          pageSize: 20,
+          reloadOn: reloadOn,
+          itemBuilder: (_, item, _) => Text(item),
+        ),
+      );
+
+      testWidgets('a changed reloadOn reloads with the new fetcher', (tester) async {
+        final calls = <String>[];
+        await tester.pumpWidget(list('a', calls, reloadOn: 'a'));
+        await tester.pumpAndSettle();
+        expect(find.text('a-1'), findsOneWidget);
+
+        await tester.pumpWidget(list('b', calls, reloadOn: 'b'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('b-1'), findsOneWidget);
+        expect(find.text('a-1'), findsNothing);
+        expect(calls, ['a-1', 'b-1']);
+      });
+
+      testWidgets('a new fetcher is used by the next refresh without refetching on rebuild', (tester) async {
+        final calls = <String>[];
+        await tester.pumpWidget(list('a', calls));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(list('b', calls));
+        await tester.pumpAndSettle();
+        expect(calls, ['a-1']);
+
+        await tester.fling(find.text('a-1'), const Offset(0, 400), 1000);
+        await tester.pumpAndSettle();
+
+        expect(calls, ['a-1', 'b-1']);
+        expect(find.text('b-1'), findsOneWidget);
+      });
+    });
+
+    group('PinInputWidgetx', () {
+      testWidgets('hardware backspace on an empty box reports the change', (tester) async {
+        final changes = <String>[];
+        await tester.pumpWidget(host(Center(child: PinInputWidgetx(onChanged: changes.add))));
+        await tester.enterText(find.byType(TextField).at(0), '1');
+        await tester.enterText(find.byType(TextField).at(1), '2');
+        await tester.pump();
+        changes.clear();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+        await tester.pump();
+
+        expect(changes, ['1']);
+      });
+
+      testWidgets('pasting a full code fills every box and completes', (tester) async {
+        String? completed;
+        await tester.pumpWidget(host(Center(child: PinInputWidgetx(onCompleted: (pin) => completed = pin))));
+        await tester.enterText(find.byType(TextField).first, '1234');
+        await tester.pump();
+
+        expect(completed, '1234');
+        for (final digit in ['1', '2', '3', '4']) {
+          expect(find.text(digit), findsOneWidget);
+        }
+      });
+
+      testWidgets('changing length on rebuild does not throw', (tester) async {
+        await tester.pumpWidget(host(const Center(child: PinInputWidgetx(length: 4))));
+        await tester.pumpWidget(host(const Center(child: PinInputWidgetx(length: 6))));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(TextField), findsNWidgets(6));
+
+        await tester.pumpWidget(host(const Center(child: PinInputWidgetx(length: 3))));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(find.byType(TextField), findsNWidgets(3));
+      });
+    });
+
+    group('GroupedDigitsInputFormatterX', () {
+      const cnic = GroupedDigitsInputFormatterX.cnic();
+
+      test('a digit typed into a full field is rejected', () {
+        const old = TextEditingValue(text: '35202-1234567-1', selection: TextSelection.collapsed(offset: 2));
+        final result = cnic.formatEditUpdate(
+          old,
+          const TextEditingValue(text: '359202-1234567-1', selection: TextSelection.collapsed(offset: 3)),
+        );
+        expect(result.text, '35202-1234567-1');
+        expect(result.selection.extentOffset, 2);
+      });
+    });
+
+    group('FormX', () {
+      test('fill with surrounding whitespace leaves the form clean', () {
+        final form = FormX<String>(['name']);
+        addTearDown(form.dispose);
+        form.fill({'name': '  Ali  '});
+        expect(form.isDirty, isFalse);
+
+        form['name'].text = 'Bilal';
+        expect(form.isDirty, isTrue);
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // Display widget fixes
+  // ──────────────────────────────────────────────
+  {
+    Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
+    // ──────────────────────────────────────────────
+    // ReadMoreWidgetx
+    // ──────────────────────────────────────────────
+    group('ReadMoreWidgetx', () {
+      String plainText(WidgetTester tester) => tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!.toPlainText();
+
+      TextSpan? linkSpan(WidgetTester tester, String label) {
+        TextSpan? found;
+        tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!.visitChildren((span) {
+          if (span is TextSpan && span.text == label) {
+            found = span;
+            return false;
+          }
+          return true;
+        });
+        return found;
+      }
+
+      final long = List.filled(60, 'word').join(' ');
+
+      testWidgets('line mode renders the trimmed text with a link in both states', (tester) async {
+        await tester.pumpWidget(
+          host(
+            SizedBox(width: 300, child: ReadMoreWidgetx(long, trimMode: TrimMode.line, trimLines: 2)),
+          ),
+        );
+
+        final collapsed = plainText(tester);
+        expect(collapsed, endsWith('Show more'));
+        expect(collapsed.length, lessThan(long.length));
+
+        (linkSpan(tester, 'Show more')!.recognizer as TapGestureRecognizer).onTap!();
+        await tester.pump();
+        expect(plainText(tester), '${long}Show less');
+
+        (linkSpan(tester, 'Show less')!.recognizer as TapGestureRecognizer).onTap!();
+        await tester.pump();
+        expect(plainText(tester), collapsed);
+      });
+
+      testWidgets('length mode does not split an emoji at the cut', (tester) async {
+        // The emoji's high surrogate sits at index 9, so cutting at 10 code
+        // units would leave half a surrogate pair behind.
+        final data = '${'a' * 9}\u{1F600}${' tail' * 20}';
+        await tester.pumpWidget(host(ReadMoreWidgetx(data, trimLength: 10)));
+
+        expect(tester.takeException(), isNull);
+        expect(plainText(tester), '${'a' * 9}Show more');
+      });
+
+      testWidgets('keeps one link recognizer and disposes it with its painters', (tester) async {
+        final created = <Object>{};
+        final disposed = <Object>{};
+        void onEvent(ObjectEvent event) {
+          final object = event.object;
+          if (object is! TapGestureRecognizer && object is! TextPainter) return;
+          if (event is ObjectCreated) created.add(object);
+          if (event is ObjectDisposed) disposed.add(object);
+        }
+
+        FlutterMemoryAllocations.instance.addListener(onEvent);
+        addTearDown(() => FlutterMemoryAllocations.instance.removeListener(onEvent));
+
+        await tester.pumpWidget(host(SizedBox(width: 300, child: ReadMoreWidgetx(long, trimLength: 20))));
+        final first = linkSpan(tester, 'Show more')!.recognizer;
+
+        (first as TapGestureRecognizer).onTap!();
+        await tester.pump();
+        expect(linkSpan(tester, 'Show less')!.recognizer, same(first), reason: 'the recognizer must survive a rebuild');
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        expect(created, isNotEmpty);
+        expect(created.difference(disposed), isEmpty, reason: 'every recognizer and painter must be disposed');
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // SegmentedControlWidgetx
+    // ──────────────────────────────────────────────
+    group('SegmentedControlWidgetx', () {
+      testWidgets('expand false sizes to its content without throwing', (tester) async {
+        String? picked;
+        await tester.pumpWidget(
+          host(
+            Center(
+              child: SegmentedControlWidgetx<String>(items: const ['A', 'B'], value: 'A', expand: false, onChanged: (v) => picked = v),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SegmentedControlWidgetx<String>)).width, lessThan(200));
+
+        await tester.tap(find.text('B'));
+        expect(picked, 'B');
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // TimelineWidgetx
+    // ──────────────────────────────────────────────
+    group('TimelineWidgetx', () {
+      testWidgets('dashPendingConnector draws a dashed connector without throwing', (tester) async {
+        await tester.pumpWidget(
+          host(
+            const TimelineWidgetx(
+              dashPendingConnector: true,
+              items: [
+                TimelineItemX(title: 'Placed', state: TimelineItemStateX.completed),
+                TimelineItemX(title: 'Packed', subtitle: 'Soon'),
+                TimelineItemX(title: 'Delivered'),
+              ],
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Delivered'), findsOneWidget);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // SwiperWidgetx
+    // ──────────────────────────────────────────────
+    group('SwiperWidgetx', () {
+      testWidgets('accepts integer viewportFraction and initialPage', (tester) async {
+        await tester.pumpWidget(host(SwiperWidgetx(items: const [Text('one'), Text('two')], viewportFraction: 1, initialPage: 1)));
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('two'), findsOneWidget);
+      });
+
+      testWidgets('renders nothing for an empty item list, even with autoplay', (tester) async {
+        var builds = 0;
+        await tester.pumpWidget(
+          host(
+            Column(
+              children: [
+                SwiperWidgetx(items: const [], autoPlay: true, autoPlayInterval: const Duration(seconds: 1)),
+                SwiperWidgetx.builder(
+                  itemCount: 0,
+                  autoPlay: true,
+                  autoPlayInterval: const Duration(seconds: 1),
+                  itemBuilder: (_, _) {
+                    builds++;
+                    return const SizedBox();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pump(const Duration(seconds: 3));
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(PageView), findsNothing);
+        expect(builds, 0);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      testWidgets('owns one page controller across rebuilds and disposes it', (tester) async {
+        var fraction = 0.8;
+        var counter = 0;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return Column(
+                  children: [
+                    Text('$counter'),
+                    SwiperWidgetx(items: const [Text('one'), Text('two')], viewportFraction: fraction),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+        PageController controller() => tester.widget<PageView>(find.byType(PageView)).controller!;
+
+        final first = controller();
+        rebuild(() => counter++);
+        await tester.pump();
+        expect(controller(), same(first), reason: 'an unrelated rebuild must keep the controller');
+
+        rebuild(() => fraction = 0.5);
+        await tester.pump();
+        final second = controller();
+        expect(second, isNot(same(first)));
+        expect(second.viewportFraction, 0.5);
+        await tester.pump();
+        expect(() => first.addListener(() {}), throwsFlutterError, reason: 'the replaced controller must be disposed');
+
+        await tester.pumpWidget(const SizedBox());
+        expect(() => second.addListener(() {}), throwsFlutterError, reason: 'the controller must be disposed with the widget');
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // CircularProgressWidgetx
+    // ──────────────────────────────────────────────
+    group('CircularProgressWidgetx', () {
+      testWidgets('a NaN or infinite value is treated as zero', (tester) async {
+        await tester.pumpWidget(host(const Center(child: CircularProgressWidgetx(value: 0 / 0))));
+        await tester.pumpAndSettle();
+        expect(find.text('0%'), findsOneWidget);
+
+        await tester.pumpWidget(host(const Center(child: CircularProgressWidgetx(value: double.infinity))));
+        await tester.pumpAndSettle();
+        expect(find.text('0%'), findsOneWidget);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // AvatarWidgetx
+    // ──────────────────────────────────────────────
+    group('AvatarWidgetx', () {
+      testWidgets('builds initials from whole characters', (tester) async {
+        await tester.pumpWidget(host(const AvatarWidgetx(name: '\u{1F600} smile')));
+        expect(tester.takeException(), isNull);
+        expect(find.text('\u{1F600}S'), findsOneWidget);
+
+        const family = '\u{1F468}‍\u{1F469}‍\u{1F467}';
+        await tester.pumpWidget(host(const AvatarWidgetx(name: '$family family')));
+        expect(find.text('${family}F'), findsOneWidget);
+
+        await tester.pumpWidget(host(const AvatarWidgetx(name: '   ')));
+        expect(find.text('?'), findsOneWidget);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // CountdownTimerWidgetx
+    // ──────────────────────────────────────────────
+    group('CountdownTimerWidgetx', () {
+      testWidgets('finishes on the tick that reaches zero', (tester) async {
+        var finished = 0;
+        await tester.pumpWidget(
+          host(
+            CountdownTimerWidgetx(
+              duration: const Duration(seconds: 3),
+              onFinished: () => finished++,
+              builder: (context, remaining, isFinished) => Text('${remaining.toClock()} $isFinished'),
+            ),
+          ),
+        );
+
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('00:01 false'), findsOneWidget);
+        expect(finished, 0);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.text('00:00 true'), findsOneWidget);
+        expect(finished, 1);
+
+        await tester.pump(const Duration(seconds: 2));
+        expect(finished, 1);
+      });
+
+      testWidgets('restarts from a changed duration', (tester) async {
+        var duration = const Duration(seconds: 10);
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return CountdownTimerWidgetx(duration: duration);
+              },
+            ),
+          ),
+        );
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('00:08'), findsOneWidget);
+
+        rebuild(() => duration = const Duration(seconds: 5));
+        await tester.pump();
+        expect(find.text('00:05'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.text('00:04'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+      });
+
+      testWidgets('a changed duration does not start a stopped timer when autoStart is false', (tester) async {
+        var duration = const Duration(seconds: 10);
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return CountdownTimerWidgetx(duration: duration, autoStart: false);
+              },
+            ),
+          ),
+        );
+
+        rebuild(() => duration = const Duration(seconds: 5));
+        await tester.pump();
+        expect(find.text('00:05'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('00:05'), findsOneWidget);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // RatingWidgetx
+    // ──────────────────────────────────────────────
+    group('RatingWidgetx', () {
+      testWidgets('resyncs when initialRating or starCount changes', (tester) async {
+        var rating = 1.0;
+        var stars = 5;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          host(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return RatingWidgetx(initialRating: rating, starCount: stars);
+              },
+            ),
+          ),
+        );
+        expect(find.byIcon(Icons.star_rounded), findsNWidgets(1));
+
+        rebuild(() => rating = 3);
+        await tester.pump();
+        expect(find.byIcon(Icons.star_rounded), findsNWidgets(3));
+
+        rebuild(() => stars = 2);
+        await tester.pump();
+        expect(find.byIcon(Icons.star_rounded), findsNWidgets(2));
+        expect(find.byIcon(Icons.star_outline_rounded), findsNothing);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // StepperIndicatorWidgetx
+    // ──────────────────────────────────────────────
+    group('StepperIndicatorWidgetx', () {
+      testWidgets('labels use the room between steps and stay centred on them', (tester) async {
+        await tester.pumpWidget(
+          host(
+            const Center(
+              child: SizedBox(
+                width: 400,
+                child: StepperIndicatorWidgetx(totalSteps: 4, currentStep: 2, labels: ['Info', 'Address', 'Payment', 'Done']),
+              ),
+            ),
+          ),
+        );
+
+        final paragraph = tester.renderObject<RenderParagraph>(find.text('Address'));
+        expect(paragraph.size.width, greaterThanOrEqualTo(paragraph.getMaxIntrinsicWidth(double.infinity)), reason: 'Address must not be ellipsised');
+        expect(tester.getCenter(find.text('Address')).dx, moreOrLessEquals(tester.getCenter(find.text('2')).dx, epsilon: 0.5));
+        expect(tester.getCenter(find.text('Payment')).dx, moreOrLessEquals(tester.getCenter(find.text('3')).dx, epsilon: 0.5));
+      });
+
+      testWidgets('renders nothing for zero or negative totalSteps', (tester) async {
+        await tester.pumpWidget(host(const StepperIndicatorWidgetx(totalSteps: 0, currentStep: 0, labels: ['A'])));
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(host(const StepperIndicatorWidgetx(totalSteps: -2, currentStep: 1)));
+        expect(tester.takeException(), isNull);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // ChipsFilterWidgetx
+    // ──────────────────────────────────────────────
+    group('ChipsFilterWidgetx', () {
+      testWidgets('single mode only honours the first selected item', (tester) async {
+        List<String>? emitted;
+        await tester.pumpWidget(
+          host(
+            ChipsFilterWidgetx<String>(
+              items: const ['a', 'b', 'c'],
+              selected: const ['a', 'b'],
+              mode: ChipsSelectionModeX.single,
+              onChanged: (v) => emitted = v,
+            ),
+          ),
+        );
+
+        expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+        await tester.tap(find.text('b'));
+        expect(emitted, ['b']);
+      });
+    });
+
+    // ──────────────────────────────────────────────
+    // ScrollToTopWidgetx
+    // ──────────────────────────────────────────────
+    group('ScrollToTopWidgetx', () {
+      testWidgets('shows the button for a controller that starts past the threshold', (tester) async {
+        final controller = ScrollController(initialScrollOffset: 2000);
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          host(
+            ScrollToTopWidgetx(
+              controller: controller,
+              child: ListView.builder(
+                controller: controller,
+                itemCount: 100,
+                itemBuilder: (_, i) => SizedBox(height: 50, child: Text('row $i')),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 1);
+      });
+    });
+  }
+}
+
+class _DisposeProbe extends StatefulWidget {
+  final VoidCallback onDispose;
+
+  const _DisposeProbe({required this.onDispose});
+
+  @override
+  State<_DisposeProbe> createState() => _DisposeProbeState();
+}
+
+class _DisposeProbeState extends State<_DisposeProbe> {
+  @override
+  void dispose() {
+    widget.onDispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(width: 10, height: 10);
 }

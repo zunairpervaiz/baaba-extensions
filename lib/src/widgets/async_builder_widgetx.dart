@@ -52,7 +52,10 @@ class AsyncBuilderWidgetx<T> extends StatefulWidget {
   /// Creates the future to watch.
   ///
   /// This is a factory, not a future, so that [retry] and [reloadOn] can run
-  /// it again. It is called once on mount and never during a plain rebuild.
+  /// it again. It is called once on mount and never during a plain rebuild —
+  /// not even when the parent passes a new closure, which an inline
+  /// `() => api.get(id)` does on every build. To refetch, change [reloadOn]
+  /// or call [AsyncBuilderWidgetxState.retry].
   final Future<T> Function()? future;
 
   /// The stream to watch, as an alternative to [future].
@@ -89,6 +92,9 @@ class AsyncBuilderWidgetx<T> extends StatefulWidget {
 
   /// When `true` the previous data stays on screen during a [retry] or a
   /// [reloadOn] change, instead of falling back to the loading state.
+  ///
+  /// A pull-to-refresh keeps the current content either way, since the
+  /// refresh indicator already shows that a request is in flight.
   final bool keepPreviousData;
 
   /// When `true` the data state is wrapped in a pull-to-refresh scroll view.
@@ -191,19 +197,30 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
   T? _lastData;
   Object? _reportedError;
 
+  /// Set when [_future] was restarted by [retry] or [reloadOn]. While it is
+  /// pending, [FutureBuilder] still carries the old future's data or error in
+  /// its waiting snapshot; this flag stops that stale result from rendering.
+  bool _hideStaleSnapshot = false;
+
   @override
   void initState() {
     super.initState();
     _lastData = widget.initialData;
     _start();
+    // The first future has nothing stale to hide; its waiting snapshot holds
+    // only [AsyncBuilderWidgetx.initialData], which is meant to be shown.
+    _hideStaleSnapshot = false;
   }
 
   @override
   void didUpdateWidget(covariant AsyncBuilderWidgetx<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     // A plain rebuild must not refire the request — only an explicit change of
-    // the reload key or of the fetcher itself does.
-    if (widget.reloadOn != oldWidget.reloadOn || widget.future != oldWidget.future) _start();
+    // the reload key does. The fetcher is deliberately not compared: an inline
+    // closure is a new object on every build, so comparing it would refetch on
+    // every parent rebuild. Switching from stream to future mode still starts.
+    final switchedToFuture = oldWidget.future == null && widget.future != null;
+    if (widget.reloadOn != oldWidget.reloadOn || switchedToFuture) _start();
   }
 
   void _start() {
@@ -211,6 +228,7 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
     if (fetcher == null) return;
     _reportedError = null;
     if (!widget.keepPreviousData) _lastData = null;
+    _hideStaleSnapshot = true;
     _future = fetcher();
   }
 
@@ -218,7 +236,12 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
   void retry() {
     if (widget.future == null) return;
     setState(_start);
-    widget.onRefresh?.call();
+    final started = _future;
+    // onRefresh waits for success, and is skipped if a newer request replaced
+    // this one or the widget is gone. The error itself is shown by the builder.
+    started?.then((_) {
+      if (mounted && identical(_future, started)) widget.onRefresh?.call();
+    }, onError: (_) {});
   }
 
   Future<void> _handleRefresh() async {
@@ -227,11 +250,19 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
     final next = fetcher();
     setState(() {
       _reportedError = null;
+      _hideStaleSnapshot = false;
       _future = next;
     });
-    // Swallow the error here — the builder below already renders it.
-    await next.catchError((_) => _lastData as T);
-    widget.onRefresh?.call();
+    try {
+      await next;
+    } catch (_) {
+      // Swallowed: the FutureBuilder watches the same future and renders the
+      // error, and onError reports it. Rethrowing would only surface it again
+      // inside the RefreshIndicator. A failed refresh is not a successful one,
+      // so onRefresh is not called.
+      return;
+    }
+    if (mounted) widget.onRefresh?.call();
   }
 
   bool _isEmpty(T data) {
@@ -291,7 +322,11 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
   }
 
   Widget _buildFor(BuildContext context, AsyncSnapshot<T> snapshot) {
-    if (snapshot.hasError) {
+    // A restarted future's waiting snapshot still holds the previous result.
+    // Fall through to the loading / keepPreviousData handling at the end.
+    final isStale = widget.stream == null && _hideStaleSnapshot && snapshot.connectionState == ConnectionState.waiting;
+
+    if (snapshot.hasError && !isStale) {
       final error = snapshot.error!;
       // Report each distinct failure once, after the frame, so that a
       // reporting callback never calls setState during a build.
@@ -307,7 +342,7 @@ class AsyncBuilderWidgetxState<T> extends State<AsyncBuilderWidgetx<T>> {
       return _wrapRefresh(_buildError(context, error));
     }
 
-    if (snapshot.hasData) {
+    if (snapshot.hasData && !isStale) {
       final data = snapshot.data as T;
       if (!identical(_lastData, data)) {
         _lastData = data;

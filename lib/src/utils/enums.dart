@@ -1,5 +1,8 @@
 enum MaskType { auto, email, phone }
 
+/// How [ReadMoreWidgetx] decides where to trim: by character count or by line count.
+enum TrimMode { length, line }
+
 /// Controls the visual style of [LoadingOverlayWidgetx].
 ///
 /// - [fullScreen] — a translucent barrier fills the entire widget area with
@@ -82,4 +85,5 @@ enum ImagePickerSourceX { camera, gallery, remove }
 /// - [multiline] — expands to several lines.
 /// - [search] — search action key on the keyboard.
 /// - [url] — URL keyboard, validated against `Patterns.url`.
-enum FieldTypeX { text, email, password, phone, number, multiline, search, url }
+/// - [cnic] — numeric keyboard, typed as `00000-0000000-0`, validated against `Patterns.cnic`.
+enum FieldTypeX { text, email, password, phone, number, multiline, search, url, cnic }

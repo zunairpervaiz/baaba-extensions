@@ -103,6 +103,7 @@ class _ScrollToTopWidgetxState extends State<ScrollToTopWidgetx> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onScroll);
+    _scheduleCheck();
   }
 
   @override
@@ -111,7 +112,17 @@ class _ScrollToTopWidgetxState extends State<ScrollToTopWidgetx> {
     if (widget.controller != oldWidget.controller) {
       oldWidget.controller.removeListener(_onScroll);
       widget.controller.addListener(_onScroll);
+      _scheduleCheck();
+    } else if (widget.threshold != oldWidget.threshold) {
+      _scheduleCheck();
     }
+  }
+
+  // The listener only fires on scroll, so a controller that starts (or already
+  // sits) past the threshold would otherwise keep the button hidden. The
+  // scrollable attaches during layout, hence the wait for the first frame.
+  void _scheduleCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onScroll());
   }
 
   @override
@@ -122,7 +133,7 @@ class _ScrollToTopWidgetxState extends State<ScrollToTopWidgetx> {
   }
 
   void _onScroll() {
-    if (!widget.controller.hasClients) return;
+    if (!mounted || !widget.controller.hasClients) return;
     final shouldShow = widget.controller.offset > widget.threshold;
     // Rebuild only when the button actually crosses the threshold, not on
     // every scroll notification.

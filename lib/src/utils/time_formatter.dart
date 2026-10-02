@@ -1,7 +1,10 @@
-/// returns how much time ago from timestamp
+/// returns how much time ago from timestamp, or how far ahead it is ("in 3 days")
+/// when the timestamp is in the future
 String formatTime(int timestamp) {
   /// The number of milliseconds that have passed since the timestamp
-  int difference = DateTime.now().millisecondsSinceEpoch - timestamp;
+  final elapsed = DateTime.now().millisecondsSinceEpoch - timestamp;
+  final isFuture = elapsed < 0;
+  int difference = elapsed.abs();
   String result;
 
   if (difference < 60000) {
@@ -20,7 +23,8 @@ String formatTime(int timestamp) {
     result = countYears(difference);
   }
 
-  return !result.startsWith("J") ? '$result ago' : result;
+  if (result.startsWith("J")) return result;
+  return isFuture ? 'in $result' : '$result ago';
 }
 
 /// Converts the time difference to a number of seconds.

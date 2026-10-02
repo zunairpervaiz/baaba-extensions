@@ -56,6 +56,8 @@ class FormX<K> {
   ///
   /// The baseline resets whenever [fill] is called, so an edit-form that has
   /// been pre-populated reports `false` until the user actually changes a field.
+  /// Both sides are compared trimmed, matching [values], so surrounding
+  /// whitespace alone never makes a field dirty.
   bool get isDirty => _controllers.entries.any((e) => e.value.text.trim() != (_initialValues[e.key] ?? ''));
 
   /// Pre-fills fields from an existing map — useful for edit screens.
@@ -71,7 +73,7 @@ class FormX<K> {
     data.forEach((key, val) {
       if (_controllers.containsKey(key)) {
         _controllers[key]!.text = val;
-        _initialValues[key] = val;
+        _initialValues[key] = val.trim();
       }
     });
   }

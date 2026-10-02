@@ -398,8 +398,12 @@ extension IterableAsyncX<T> on Iterable<T>? {
   /// work.
   ///
   /// Example: `ids.mapParallel((id) => api.fetch(id), concurrency: 4)`
+  ///
+  /// Throws an [ArgumentError] when [concurrency] is zero or negative.
   Future<List<R>> mapParallel<R>(Future<R> Function(T element) transform, {int? concurrency}) async {
-    assert(concurrency == null || concurrency > 0, 'IterableAsyncX.mapParallel: concurrency must be greater than zero.');
+    if (concurrency != null && concurrency <= 0) {
+      throw ArgumentError.value(concurrency, 'concurrency', 'IterableAsyncX.mapParallel: must be greater than zero');
+    }
     final list = validate();
     if (list.isEmpty) return <R>[];
     if (concurrency == null || concurrency >= list.length) {
@@ -450,9 +454,13 @@ extension ListSplit<T> on List<T> {
 
   /// Splits the list into chunks of [size].
   ///
+  /// When [size] is zero or negative, returns a single chunk holding a copy of
+  /// the whole list, or no chunks when the list is empty. Every chunk is a new
+  /// list; the receiver is never returned.
+  ///
   /// Example: `[1,2,3,4,5].chunked(2)` → `[[1,2],[3,4],[5]]`
   List<List<T>> chunked(int size) {
-    if (size <= 0) return [this];
+    if (size <= 0) return isEmpty ? <List<T>>[] : [List<T>.of(this)];
     return List.generate((length / size).ceil(), (i) {
       final start = i * size;
       return sublist(start, (start + size).clamp(0, length));
@@ -505,8 +513,13 @@ extension ListMutationX<T> on List<T> {
 
   /// Moves the element at [from] to [to], shifting the rest. Mutates in place.
   ///
-  /// This is the operation `ReorderableListView.onReorder` hands you. Returns
+  /// [to] is the element's index after the move, which is what
+  /// `ReorderableListView.onReorderItem` hands you, so its arguments can be
+  /// passed straight through. (The deprecated `onReorder` passes an index
+  /// computed before removal, which is off by one when moving down.) Returns
   /// `false` and changes nothing when either index is out of range.
+  ///
+  /// Example: `['a','b','c'].moveItem(0, 2)` → `['b','c','a']`
   bool moveItem(int from, int to) {
     if (from < 0 || from >= length || to < 0 || to >= length || from == to) return false;
     insert(to, removeAt(from));

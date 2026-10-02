@@ -12,13 +12,16 @@ extension DateTimeExt on DateTime {
 
   /// Returns true when this date falls on yesterday's calendar day.
   bool get isYesterday {
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final now = DateTime.now();
+    // Calendar arithmetic, not 24-hour Durations, so a DST change cannot shift the day.
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
     return year == yesterday.year && month == yesterday.month && day == yesterday.day;
   }
 
   /// Returns true when this date falls on tomorrow's calendar day.
   bool get isTomorrow {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
     return year == tomorrow.year && month == tomorrow.month && day == tomorrow.day;
   }
 
@@ -46,10 +49,10 @@ extension DateTimeExt on DateTime {
   bool get isWeekday => !isWeekend;
 
   /// Returns the [DateTime] at midnight of the Monday that starts this week.
-  DateTime get startOfWeek => subtract(Duration(days: weekday - 1)).startOfDay;
+  DateTime get startOfWeek => DateTime(year, month, day - (weekday - 1));
 
   /// Returns the [DateTime] at end-of-day of the Sunday that ends this week.
-  DateTime get endOfWeek => startOfWeek.add(const Duration(days: 6)).endOfDay;
+  DateTime get endOfWeek => DateTime(year, month, day + (7 - weekday), 23, 59, 59, 999);
 
   // ── Month ─────────────────────────────────────────────────────────────────
 
@@ -93,10 +96,19 @@ extension DateTimeExt on DateTime {
   // ── Convenience arithmetic ────────────────────────────────────────────────
 
   /// Returns a new [DateTime] shifted [days] days into the future.
-  DateTime addDays(int days) => add(Duration(days: days));
+  DateTime addDays(int days) => shiftDaysX(days);
 
   /// Returns a new [DateTime] shifted [days] days into the past.
-  DateTime subtractDays(int days) => subtract(Duration(days: days));
+  DateTime subtractDays(int days) => shiftDaysX(-days);
+
+  /// Returns this moment moved by [days] calendar days, keeping the wall-clock
+  /// time even across a daylight-saving change, where `add(Duration(days: 1))`
+  /// would land an hour off.
+  ///
+  /// Example: `DateTime(2026, 3, 7, 12).shiftDaysX(1)` → `2026-03-08 12:00`
+  DateTime shiftDaysX(int days) => isUtc
+      ? DateTime.utc(year, month, day + days, hour, minute, second, millisecond, microsecond)
+      : DateTime(year, month, day + days, hour, minute, second, millisecond, microsecond);
 
   /// Returns a new [DateTime] shifted [hours] hours into the future.
   DateTime addHours(int hours) => add(Duration(hours: hours));
@@ -109,7 +121,90 @@ extension DateTimeExt on DateTime {
 
   /// Returns a new [DateTime] shifted [minutes] minutes into the past.
   DateTime subtractMinutes(int minutes) => subtract(Duration(minutes: minutes));
+
+  // ── Formatting ────────────────────────────────────────────────────────────
+
+  /// Returns this date formatted with an `intl`-style [pattern], in English,
+  /// without depending on `intl`.
+  ///
+  /// | Token | Output | | Token | Output |
+  /// |---|---|---|---|---|
+  /// | `yyyy` / `yy` / `y` | `2026` / `26` / `2026` | | `HH` / `H` | `09` / `9` (24-hour) |
+  /// | `MMMM` / `MMM` | `March` / `Mar` | | `hh` / `h` | `09` / `9` (12-hour) |
+  /// | `MM` / `M` | `03` / `3` | | `mm` / `m` | `05` / `5` |
+  /// | `dd` / `d` | `05` / `5` | | `ss` / `s` | `07` / `7` |
+  /// | `EEEE` / `EEE` | `Thursday` / `Thu` | | `SSS` | `042` (fraction of a second, one digit per `S`) |
+  /// | `a` | `AM` / `PM` | | `'text'` | literal text; `''` is a quote |
+  ///
+  /// Any other character is copied as is. For localised output (Urdu month
+  /// names, other calendars) use `intl`'s `DateFormat` instead.
+  ///
+  /// Example: `DateTime(2026, 3, 5, 14, 5).format('d MMM, h:mm a')` → `'5 Mar, 2:05 PM'`
+  String format(String pattern) {
+    final out = StringBuffer();
+    var i = 0;
+    while (i < pattern.length) {
+      final char = pattern[i];
+
+      if (char == "'") {
+        // '' on its own is a quote; inside quoted text, '' is a quote too and
+        // does not end the text. An unclosed quote runs to the end.
+        if (i + 1 < pattern.length && pattern[i + 1] == "'") {
+          out.write("'");
+          i += 2;
+          continue;
+        }
+        i++;
+        while (i < pattern.length) {
+          if (pattern[i] != "'") {
+            out.write(pattern[i++]);
+          } else if (i + 1 < pattern.length && pattern[i + 1] == "'") {
+            out.write("'");
+            i += 2;
+          } else {
+            i++;
+            break;
+          }
+        }
+        continue;
+      }
+
+      var count = 1;
+      while (i + count < pattern.length && pattern[i + count] == char) {
+        count++;
+      }
+      out.write(_formatField(char, count) ?? char * count);
+      i += count;
+    }
+    return out.toString();
+  }
+
+  String? _formatField(String char, int count) {
+    String pad(int value) => value.toString().padLeft(count, '0');
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+
+    return switch (char) {
+      'y' => count == 2 ? (year % 100).toString().padLeft(2, '0') : pad(year),
+      'M' => count >= 4 ? _monthNames[month - 1] : (count == 3 ? _monthNames[month - 1].substring(0, 3) : pad(month)),
+      'd' => pad(day),
+      'E' => count >= 4 ? _weekdayNames[weekday - 1] : _weekdayNames[weekday - 1].substring(0, 3),
+      'H' => pad(hour),
+      'h' => pad(hour12),
+      'm' => pad(minute),
+      's' => pad(second),
+      'S' => (millisecond * 1000 + microsecond).toString().padLeft(6, '0').padRight(count, '0').substring(0, count),
+      'a' => hour < 12 ? 'AM' : 'PM',
+      _ => null,
+    };
+  }
 }
+
+const _monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /// Returns the current time in milliseconds since epoch.
 int currentMillisecondsTimeStamp() => DateTime.now().millisecondsSinceEpoch;

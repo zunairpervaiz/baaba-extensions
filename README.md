@@ -34,6 +34,7 @@ name.validate(value: 'N/A'); // → 'N/A'
 name.isEmptyOrNull;          // → true
 name.isNullOrBlank;          // → true
 name.isNotBlank;             // → false
+name.ifBlank('N/A');         // → 'N/A' (null, empty or whitespace-only → fallback)
 
 // Validation
 'user@example.com'.validateEmail();    // → true
@@ -92,8 +93,9 @@ await 'copy me'.copyToClipboard();
 '03001234567'.formatPkMobile;         // → '0300-1234567'
 '03001234567'.toDisplayFormattedPhone;// → '0300-1234567'
 
-// Toast
-'Saved successfully!'.toastString(); // shows a toast
+// Pakistan CNIC
+'3520212345671'.formatCnic;           // → '35202-1234567-1' (unchanged unless 13 digits)
+'35202-1234567-1'.isCnic;             // → true (dashed or 13 bare digits)
 
 // New in 0.5.0
 '<b>Hello</b> world'.stripHtml();                     // → 'Hello world'
@@ -624,8 +626,21 @@ final choice = await context.showActionSheet<String>(
 
 ### `DateTimeExt` — on `DateTime`
 
+**Formatting** — `intl`-style patterns, English only, no `intl` dependency:
+
 ```dart
-DateTime.now().timeAgo    // → 'Just now' / '5 minutes ago' / etc.
+final d = DateTime(2026, 3, 5, 14, 5);
+d.format('d MMM yyyy')        // → '5 Mar 2026'
+d.format('d MMM, h:mm a')     // → '5 Mar, 2:05 PM'
+d.format('EEE, d MMM yyyy')   // → 'Thu, 5 Mar 2026'
+d.format('yyyy-MM-dd HH:mm')  // → '2026-03-05 14:05'
+d.format("d MMM 'at' h a")    // → '5 Mar at 2 PM'   ('quoted' text is literal; '' is a quote)
+```
+
+Tokens: `yyyy` `yy` `y` · `MMMM` `MMM` `MM` `M` · `dd` `d` · `EEEE` `EEE` · `HH` `H` (24-hour) · `hh` `h` (12-hour) · `mm` `m` · `ss` `s` · `SSS` · `a`. Use `intl`'s `DateFormat` when you need localised (e.g. Urdu) output.
+
+```dart
+DateTime.now().timeAgo    // → 'Just now' / '5 minutes ago' / 'in 3 days' / etc.
 DateTime.now().isToday    // → true
 DateTime.now().isYesterday
 DateTime.now().isTomorrow
@@ -654,8 +669,9 @@ date.quarterOf            // → 1, 2, 3, or 4
 
 // Age & arithmetic
 birthDate.age             // full years from birth date to today
-date.addDays(7)
+date.addDays(7)           // calendar days — keeps the wall-clock time across DST
 date.subtractDays(3)
+date.shiftDaysX(-1)
 date.addHours(2)
 date.subtractMinutes(30)
 ```
@@ -708,6 +724,18 @@ Text('Hello').safeArea()
 Text('Hello').sliverBox             // SliverToBoxAdapter
 ```
 
+**Render a widget to PNG** — for custom map markers, share images, thumbnails. The image is sized to the widget, at the device pixel ratio by default:
+
+```dart
+final bytes = await MarkerPin(name: 'Ali').toPngBytes();
+
+// Google Maps marker (the maps dependency stays in your app):
+final dpr = View.of(context).devicePixelRatio;
+final icon = BitmapDescriptor.bytes(await markerWidget.toPngBytes(), imagePixelRatio: dpr);
+```
+
+It is rendered outside your widget tree, so it inherits no `Theme`, text scale, or localizations — wrap it in those if it needs them. `waitToRender` (300 ms by default) gives images inside it time to decode; `logicalSize`, `pixelRatio`, and `textDirection` are configurable. The off-screen tree is disposed after every capture.
+
 ---
 
 ### `BoolxExtensions` — on `bool`
@@ -726,7 +754,7 @@ Ready-made Flutter widgets exported from the package.
 
 ### `VxTextBuilder`
 
-A fluent, chainable text-styling builder backed by `AutoSizeText`. Chain as many modifiers as needed, then call `.make()` to produce a `Widget`.
+A fluent, chainable text-styling builder. Chain as many modifiers as needed, then call `.make()` to produce a plain `Text` — at exactly the size you set, respecting the system text scale. Text is never shrunk to fit; past `maxLines` it is truncated according to `overflow`.
 
 ```dart
 // Basic usage
@@ -744,7 +772,7 @@ VxTextBuilder('Hello World')
   .xl2
   .make();
 
-// Via extension on an existing Text widget
+// Via extension on an existing Text widget — keeps its style, maxLines, textAlign, key, and Text.rich spans
 Text('Hello').text
   .semiBold
   .ellipsis
@@ -861,29 +889,23 @@ VxTextBuilder('Body').bodyMedium(context).make()
 //   titleLarge/Medium/Small, bodyLarge/Medium/Small, labelLarge/Medium/Small
 ```
 
-**Auto-size controls**
+**Line limits and shrink-to-fit**
 
 ```dart
-VxTextBuilder('text')
-  .minFontSize(10)
-  .maxFontSize(30)
-  .stepGranularity(0.5)
-  .maxLines(2)
-  .overflowReplacement(Text('…'))
-  .make();
+// Truncate at one size.
+VxTextBuilder('A long title').maxLines(2).ellipsis.make();
+
+// Shrink to fit only where you actually want it.
+FittedBox(fit: BoxFit.scaleDown, child: VxTextBuilder('Wide label').make());
 ```
+
+> Before 0.8.0, `.make()` built an `AutoSizeText`. `.isIntrinsic`, `minFontSize`, `maxFontSize`, `stepGranularity`, `wrapWords` and `overflowReplacement` are now deprecated no-ops — remove them.
 
 **Conditional rendering**
 
 ```dart
 VxTextBuilder('Admin only').when(user.isAdmin).make();
 // renders SizedBox.shrink() when false
-```
-
-**Intrinsic mode** — disables `AutoSizeText` for widgets that don't work with `LayoutBuilder`:
-
-```dart
-VxTextBuilder('text').isIntrinsic.make();
 ```
 
 **`VxStringTextExtensions` — on `String`**
@@ -999,7 +1021,7 @@ A text widget that collapses long content with a "Show more" / "Show less" toggl
 ReadMoreWidgetx(
   data: longText,
   trimLines: 3,
-  trimMode: TrimMode.Line,
+  trimMode: TrimMode.line,
   trimCollapsedText: 'Read more',
   trimExpandedText: 'Read less',
   colorClickableText: Colors.blue,
@@ -1010,9 +1032,9 @@ ReadMoreWidgetx(
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `data` | `String` | required | Text content |
-| `trimMode` | `TrimMode` | `TrimMode.Length` | Trim by character count or line count |
-| `trimLength` | `int` | `200` | Max characters (for `TrimMode.Length`) |
-| `trimLines` | `int` | `2` | Max lines (for `TrimMode.Line`) |
+| `trimMode` | `TrimMode` | `TrimMode.length` | Trim by character count or line count |
+| `trimLength` | `int` | `200` | Max characters (for `TrimMode.length`) |
+| `trimLines` | `int` | `2` | Max lines (for `TrimMode.line`) |
 | `trimCollapsedText` | `String` | `'Show more'` | Label when collapsed |
 | `trimExpandedText` | `String` | `'Show less'` | Label when expanded |
 | `colorClickableText` | `Color?` | — | Color of the toggle link |
@@ -1021,8 +1043,8 @@ ReadMoreWidgetx(
 **`TrimMode` enum:**
 
 ```dart
-TrimMode.Length  // trim by character count
-TrimMode.Line    // trim by line count
+TrimMode.length  // trim by character count
+TrimMode.line    // trim by line count
 ```
 
 ---
@@ -1365,6 +1387,16 @@ PaginatedListWidgetx<User>(
 
 That single call already gives you a skeleton placeholder on first load, an empty state when there are no results, an inline retry when a page fails, a spinner footer while the next page loads, pull-to-refresh, and prefetching 200px before the end.
 
+**Search / filters** — pass the query as `reloadOn`, and the list restarts from page 1 whenever it changes. A new `fetchItems` closure on its own never refetches; it is just used for the next page or refresh:
+
+```dart
+PaginatedListWidgetx<User>(
+  fetchItems: (page) => api.searchUsers(query, page: page),
+  reloadOn: query,
+  itemBuilder: (context, user, index) => UserTile(user),
+)
+```
+
 **Cursor / `hasMore` aware APIs** — return a `PageX` instead:
 
 ```dart
@@ -1600,7 +1632,13 @@ TextFieldWidgetx(
 )
 ```
 
-`FieldTypeX` presets: `text`, `email`, `password`, `phone`, `number`, `multiline`, `search`, `url`.
+`FieldTypeX` presets: `text`, `email`, `password`, `phone`, `number`, `multiline`, `search`, `url`, `cnic`.
+
+`FieldTypeX.cnic` formats as the user types (`35202-1234567-1`), opens the numeric keyboard, and validates against `Patterns.cnic`:
+
+```dart
+TextFieldWidgetx<String>(form: form, fieldKey: 'cnic', label: 'CNIC', type: FieldTypeX.cnic, isRequired: true)
+```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -1917,19 +1955,27 @@ CircularProgressWidgetx(value: null, size: 60)
 
 ### `ConnectivityBannerWidgetx`
 
-Slides an offline banner over the app when connectivity drops, and a brief "Back online" confirmation when it returns. Wrap it once around the app rather than per screen:
+Slides an offline banner over the app when connectivity drops, and a brief "Back online" confirmation when it returns. The package ships no connectivity plugin — you supply the state as a `Stream<bool>` (`true` = online) from `connectivity_plus` or whatever your app already uses. Wrap it once around the app rather than per screen:
 
 ```dart
+// In your app: add connectivity_plus (or any other source) yourself.
 MaterialApp(
-  builder: (context, child) => ConnectivityBannerWidgetx(child: child!),
+  builder: (context, child) => ConnectivityBannerWidgetx(
+    statusStream: Connectivity().onConnectivityChanged
+        .map((results) => results.any((r) => r != ConnectivityResult.none)),
+    child: child!,
+  ),
   home: const HomePage(),
 )
 ```
 
-`connectivity_plus` reports whether a network *interface* is up, not whether the internet is actually reachable — a captive-portal wifi still counts as connected. Pass `verifyConnection` to make the banner depend on a real request:
+Nothing shows until the stream's first value, so a stream that only fires on change should be seeded with the current state, or an app launched offline shows no banner.
+
+A plugin like `connectivity_plus` reports whether a network *interface* is up, not whether the internet is actually reachable — a captive-portal wifi still counts as connected. Pass `verifyConnection` to make the banner depend on a real request:
 
 ```dart
 ConnectivityBannerWidgetx(
+  statusStream: connectionStream,
   verifyConnection: () async {
     try {
       final result = await InternetAddress.lookup('example.com');
@@ -1942,35 +1988,35 @@ ConnectivityBannerWidgetx(
 )
 ```
 
-`statusStream` overrides the source entirely — useful in tests, and for apps that already track connection state themselves. The banner leaves the widget tree once it has slid away, so a hidden banner is never left rendering text where screen readers would still reach it.
+A verification that finishes after a newer status arrived is discarded, so a slow check cannot flip the banner back. The banner leaves the widget tree once it has slid away, so a hidden banner is never left rendering text where screen readers would still reach it.
 
 ---
 
 ### `ImagePickerSheetWidgetx`
 
-The "Take a photo / Choose from gallery / Remove" sheet, with the picking already wired to `image_picker`.
+The "Take a photo / Choose from gallery / Remove" sheet. `pickSource` shows it and returns the user's choice as an `ImagePickerSourceX`; the picking itself is up to your app, so the package carries no camera or gallery plugin and you can put any picker, cropper, or custom camera behind it.
 
 ```dart
-// One call: sheet, picker, file.
-final file = await ImagePickerSheetWidgetx.pick(
+final source = await ImagePickerSheetWidgetx.pickSource(
   context,
   showRemove: avatarPath != null,
-  imageQuality: 70,
-  maxWidth: 1080,
-  onRemove: removeAvatar,
 );
-if (file != null) setState(() => avatarPath = file.path);
 
-// Stop after the choice — for a cropper in between, or a custom camera.
-final source = await ImagePickerSheetWidgetx.pickSource(context);
-
-// Multiple gallery images.
-final files = await ImagePickerSheetWidgetx.pickMultiple(context, limit: 5);
+switch (source) {
+  case ImagePickerSourceX.camera:
+    final file = await ImagePicker().pickImage(source: ImageSource.camera);
+    // ...
+  case ImagePickerSourceX.gallery:
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+    // ...
+  case ImagePickerSourceX.remove:
+    removeAvatar();
+  case null:
+    break; // sheet dismissed
+}
 ```
 
-A denied permission or a plugin failure surfaces as `null` (or through `onError`) rather than crashing the calling screen. `picker:` accepts an injected `ImagePicker` for tests.
-
-> **iOS setup:** add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to `Info.plist`.
+Whichever picker you use owns the platform setup — for `image_picker` that is `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` in the iOS `Info.plist`.
 
 ---
 
@@ -2068,6 +2114,24 @@ One page of results.
 
 ---
 
+### `GroupedDigitsInputFormatterX` — Masked digit input
+
+A `TextInputFormatter` that keeps only digits and groups them as the user types. Pasted text is reformatted, input past the last group is dropped, the caret stays beside the digit it was next to when editing mid-number, and backspacing over a separator deletes the digit before it.
+
+```dart
+TextField(inputFormatters: const [GroupedDigitsInputFormatterX.cnic()]);      // 35202-1234567-1
+TextField(inputFormatters: const [GroupedDigitsInputFormatterX.pkMobile()]);  // 0300-1234567
+TextField(inputFormatters: const [
+  GroupedDigitsInputFormatterX(groupLengths: [4, 4, 4, 4], separator: ' '),   // 4111 1111 1111 1111
+]);
+
+const GroupedDigitsInputFormatterX.cnic().format('3520212345671'); // → '35202-1234567-1'
+```
+
+It replaces `mask_text_input_formatter` for digit masks like `'#####-#######-#'`.
+
+---
+
 ### `FormX<K>` — Generic form controller
 
 Manages all `TextEditingController` instances for a form under a single typed object. Works with enums, strings, or any key type — no more declaring a separate controller variable per field.
@@ -2139,7 +2203,7 @@ Patterns.emailEnhanced
 Patterns.pkMobileLocal   // 03xxxxxxxxx
 Patterns.pkMobileGlobal  // +92 / 0092 / 0 prefix
 Patterns.url
-Patterns.image  // jpeg, jpg, gif, png, bmp
+Patterns.image  // jpeg, jpg, gif, png, bmp — case-sensitive here; 'X.JPG'.isImage ignores case
 Patterns.audio  // mp3, wav, ogg, etc.
 Patterns.video  // mp4, avi, mkv, etc.
 Patterns.pdf
@@ -2150,10 +2214,12 @@ Patterns.apk
 Patterns.txt
 Patterns.html
 Patterns.cnic        // Pakistani CNIC: 00000-0000000-0
+Patterns.cnicDigits  // Pakistani CNIC without dashes: 13 digits
 Patterns.ntn         // Pakistani NTN: 0000000-0
 Patterns.ipv4
 Patterns.creditCard  // Visa, Mastercard, Amex, Discover, JCB
 Patterns.hexColor    // #fff or #ffffff
+Patterns.alpha       // ASCII letters only
 ```
 
 ### `MaskType` enum
@@ -2169,8 +2235,8 @@ MaskType.phone
 Used by `ReadMoreWidgetx` to choose how text is trimmed.
 
 ```dart
-TrimMode.Length  // trim after N characters (default)
-TrimMode.Line    // trim after N lines
+TrimMode.length  // trim after N characters (default)
+TrimMode.line    // trim after N lines
 ```
 
 ### `ColorX` — on `Color`
@@ -2216,19 +2282,13 @@ const Duration(hours: 3).ago                    // DateTime 3 hours ago
 const Duration(milliseconds: 500).delay(() => reload())
 const Duration(seconds: 10).isZero             // false
 const Duration(seconds: 10) * 2.5              // Duration(seconds: 25)
+
+// Clock reading — countdowns, OTP timers, media lengths
+const Duration(minutes: 4, seconds: 59).toClock()            // → '04:59'
+const Duration(hours: 1, minutes: 4, seconds: 59).toClock()  // → '1:04:59'
 ```
 
 ---
-
-### Global Toast Config
-
-Override these before showing any toasts:
-
-```dart
-defaultToastBackgroundColor = Colors.black87;
-defaultToastTextColor       = Colors.white;
-defaultToastGravityGlobal   = ToastGravity.BOTTOM;
-```
 
 ### Global Dialog Config
 
@@ -2270,6 +2330,7 @@ defaultFieldBorderRadiusGlobal        = 12;
 defaultFieldRequiredMessageGlobal     = 'Yeh field zaroori hai';
 defaultFieldInvalidEmailMessageGlobal = 'Sahi email darj karein';
 defaultFieldInvalidPhoneMessageGlobal = 'Sahi phone number darj karein';
+defaultFieldInvalidCnicMessageGlobal  = 'Sahi CNIC darj karein';
 
 defaultSheetBorderRadiusGlobal = 24;
 defaultSheetCancelTextGlobal   = 'Cancel';
@@ -2311,9 +2372,4 @@ defaultImagePickerRemoveTextGlobal  = 'Tasveer hatayein';
 
 - Dart SDK `^3.12.0`
 - Flutter `>=3.44.0`
-- [`fluttertoast`](https://pub.dev/packages/fluttertoast) `^10.0.0` — used by `StringExtension.toastString()`
-- [`flutter_auto_size_text`](https://pub.dev/packages/flutter_auto_size_text) `^5.0.0` — used by `VxTextBuilder`
-- [`connectivity_plus`](https://pub.dev/packages/connectivity_plus) `^7.3.1` — used by `ConnectivityBannerWidgetx`
-- [`image_picker`](https://pub.dev/packages/image_picker) `^1.2.3` — used by `ImagePickerSheetWidgetx`
-
-`connectivity_plus` and `image_picker` are **platform plugins**, so every app depending on `baaba_extensions` inherits them even if it never uses those two widgets. Apps that use `ImagePickerSheetWidgetx` must also add `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription` to their iOS `Info.plist`.
+No dependencies beyond the Flutter SDK — the package adds no platform plugins, native code, or `Info.plist` entries to your app.

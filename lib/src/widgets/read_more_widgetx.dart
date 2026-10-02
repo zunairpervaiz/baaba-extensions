@@ -1,7 +1,6 @@
+import 'package:baaba_extensions/src/utils/enums.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-
-enum TrimMode { Length, Line }
 
 class ReadMoreWidgetx extends StatefulWidget {
   final String data;
@@ -25,7 +24,7 @@ class ReadMoreWidgetx extends StatefulWidget {
     this.colorClickableText,
     this.trimLength = 200,
     this.trimLines = 2,
-    this.trimMode = TrimMode.Length,
+    this.trimMode = TrimMode.length,
     this.style,
     this.textAlign,
     this.textDirection,
@@ -42,8 +41,36 @@ class ReadMoreWidgetx extends StatefulWidget {
 const String _kEllipsis = '\u2026';
 const String _kLineSeparator = '\u2028';
 
+// Returns the longest prefix of [text] that is at most [maxLength] UTF-16 code
+// units long and ends on a whole character, so an emoji or other surrogate
+// pair is never cut in half (which leaves an ill-formed string that throws).
+String _safePrefix(String text, int maxLength) {
+  var length = 0;
+  for (final char in text.characters) {
+    if (length + char.length > maxLength) break;
+    length += char.length;
+  }
+  return text.substring(0, length);
+}
+
 class ReadMoreWidgetxState extends State<ReadMoreWidgetx> {
   bool _readMore = true;
+
+  // Owned by the state rather than built in build(): a recognizer created per
+  // frame is never disposed.
+  late final TapGestureRecognizer _linkRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _linkRecognizer = TapGestureRecognizer()..onTap = _onTapLink;
+  }
+
+  @override
+  void dispose() {
+    _linkRecognizer.dispose();
+    super.dispose();
+  }
 
   void _onTapLink() {
     setState(() {
@@ -73,7 +100,7 @@ class ReadMoreWidgetxState extends State<ReadMoreWidgetx> {
     TextSpan link = TextSpan(
       text: _readMore ? widget.trimCollapsedText : widget.trimExpandedText,
       style: effectiveTextStyle!.copyWith(color: colorClickableText),
-      recognizer: TapGestureRecognizer()..onTap = _onTapLink,
+      recognizer: _linkRecognizer,
     );
 
     Widget result = LayoutBuilder(
@@ -99,24 +126,26 @@ class ReadMoreWidgetxState extends State<ReadMoreWidgetx> {
         final textSize = textPainter.size;
 
         bool linkLongerThanLine = false;
-        int? endIndex;
+        int endIndex;
 
         if (linkSize.width < maxWidth) {
           final pos = textPainter.getPositionForOffset(Offset(textSize.width - linkSize.width, textSize.height));
-          endIndex = textPainter.getOffsetBefore(pos.offset);
+          endIndex = textPainter.getOffsetBefore(pos.offset) ?? 0;
         } else {
           var pos = textPainter.getPositionForOffset(textSize.bottomLeft(Offset.zero));
           endIndex = pos.offset;
           linkLongerThanLine = true;
         }
+        final didExceedMaxLines = textPainter.didExceedMaxLines;
+        textPainter.dispose();
 
         var textSpan = TextSpan();
         switch (widget.trimMode) {
-          case TrimMode.Length:
+          case TrimMode.length:
             if (widget.trimLength < widget.data.length) {
               textSpan = TextSpan(
                 style: effectiveTextStyle,
-                text: _readMore ? widget.data.substring(0, widget.trimLength) : widget.data,
+                text: _readMore ? _safePrefix(widget.data, widget.trimLength) : widget.data,
                 children: <TextSpan>[link],
               );
             } else {
@@ -125,11 +154,12 @@ class ReadMoreWidgetxState extends State<ReadMoreWidgetx> {
 
             break;
 
-          case TrimMode.Line:
-            if (textPainter.didExceedMaxLines) {
-              TextSpan(
+          case TrimMode.line:
+            if (didExceedMaxLines) {
+              textSpan = TextSpan(
                 style: effectiveTextStyle,
-                text: _readMore ? widget.data.substring(0, endIndex) + (linkLongerThanLine ? _kLineSeparator : '') : widget.data,
+                text: _readMore ? _safePrefix(widget.data, endIndex) + (linkLongerThanLine ? _kLineSeparator : '') : widget.data,
+                children: <TextSpan>[link],
               );
             } else {
               textSpan = TextSpan(style: effectiveTextStyle, text: widget.data);

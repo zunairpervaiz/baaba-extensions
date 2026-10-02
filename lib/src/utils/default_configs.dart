@@ -1,11 +1,7 @@
-// Toast Config
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
-Color defaultToastBackgroundColor = Colors.grey.shade200;
-Color defaultToastTextColor = Colors.black;
-ToastGravity defaultToastGravityGlobal = ToastGravity.CENTER;
-BorderRadius defaultToastBorderRadiusGlobal = BorderRadius.circular(30);
+// Masking Config
+bool isMaskingEnabledGlobal = true;
 
 // Dialog Config
 Color defaultDialogConfirmColorGlobal = Colors.indigo;
@@ -34,6 +30,7 @@ double defaultFieldBorderRadiusGlobal = 12;
 String defaultFieldRequiredMessageGlobal = 'This field is required';
 String defaultFieldInvalidEmailMessageGlobal = 'Enter a valid email address';
 String defaultFieldInvalidPhoneMessageGlobal = 'Enter a valid phone number';
+String defaultFieldInvalidCnicMessageGlobal = 'Enter a valid CNIC (00000-0000000-0)';
 
 // Bottom Sheet Config
 double defaultSheetBorderRadiusGlobal = 24;

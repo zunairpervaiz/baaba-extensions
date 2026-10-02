@@ -25,7 +25,9 @@ import 'package:flutter/material.dart';
 /// CircularProgressWidgetx(value: null, size: 60)
 /// ```
 class CircularProgressWidgetx extends StatelessWidget {
-  /// Progress from `0.0` to `1.0`. Values outside that range are clamped.
+  /// Progress from `0.0` to `1.0`. Values outside that range are clamped, and a
+  /// non-finite value (`NaN` from `0 / 0`, or infinity from dividing by zero)
+  /// is treated as `0.0`.
   ///
   /// Pass `null` for an indeterminate spinner.
   final double? value;
@@ -131,7 +133,7 @@ class CircularProgressWidgetx extends StatelessWidget {
     }
 
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value!.clamp(0.0, 1.0)),
+      tween: Tween<double>(begin: 0, end: value!.isFinite ? value!.clamp(0.0, 1.0) : 0.0),
       duration: animationDuration,
       curve: animationCurve,
       builder: (context, animated, _) => SizedBox(

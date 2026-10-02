@@ -127,8 +127,10 @@ extension ContextX on BuildContext {
   /// Shows a Material date picker and returns the selected [DateTime], or
   /// `null` if the user cancels.
   ///
-  /// All parameters are optional. Defaults: [initialDate] → today,
-  /// [firstDate] → 100 years ago, [lastDate] → 100 years from now.
+  /// All parameters are optional. Defaults: [initialDate] → today, clamped
+  /// into [firstDate]…[lastDate] (so a date-of-birth picker whose [lastDate]
+  /// is in the past opens on [lastDate]), [firstDate] → 100 years ago,
+  /// [lastDate] → 100 years from now. An explicit [initialDate] is not clamped.
   ///
   /// Example:
   /// ```dart
@@ -151,11 +153,20 @@ extension ContextX on BuildContext {
     RouteSettings? routeSettings,
   }) {
     final now = DateTime.now();
+    final first = firstDate ?? DateTime(now.year - 100);
+    final last = lastDate ?? DateTime(now.year + 100);
+    var initial = initialDate;
+    if (initial == null) {
+      // showDatePicker compares date-only values, so clamp on those.
+      initial = DateUtils.dateOnly(now);
+      if (initial.isBefore(DateUtils.dateOnly(first))) initial = first;
+      if (initial.isAfter(DateUtils.dateOnly(last))) initial = last;
+    }
     return showDatePicker(
       context: this,
-      initialDate: initialDate ?? now,
-      firstDate: firstDate ?? DateTime(now.year - 100),
-      lastDate: lastDate ?? DateTime(now.year + 100),
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
       initialEntryMode: initialEntryMode,
       initialDatePickerMode: initialDatePickerMode,
       selectableDayPredicate: selectableDayPredicate,

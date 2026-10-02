@@ -1,3 +1,101 @@
+## 0.8.0
+
+The package now depends on nothing but the Flutter SDK. `fluttertoast`, `connectivity_plus`, and `image_picker` have been removed, so apps no longer inherit their native code, permissions, or `Info.plist` requirements, and `flutter_auto_size_text` has been removed along with auto-sizing in `VxTextBuilder`.
+
+### Breaking
+- **Removed `StringExtension.toastString()`** and the toast globals `defaultToastBackgroundColor`, `defaultToastTextColor`, `defaultToastGravityGlobal`, and `defaultToastBorderRadiusGlobal`. Use `context.showSnackBar(SnackBar(content: Text(message)))` from `ContextX`, or call `fluttertoast` from your app directly.
+- **`ConnectivityBannerWidgetx.statusStream` is now required.** The widget no longer reads `connectivity_plus` itself. Pass a `Stream<bool>` (`true` = online) from whichever source your app uses:
+  ```dart
+  ConnectivityBannerWidgetx(
+    statusStream: Connectivity().onConnectivityChanged
+        .map((results) => results.any((r) => r != ConnectivityResult.none)),
+    child: child!,
+  )
+  ```
+  A stream that only fires on change should be seeded with the current state, or an app launched offline shows no banner.
+- **`VxTextBuilder.make()` now builds a plain `Text` instead of an `AutoSizeText`.** Text renders at exactly the size you set:
+  - Sizes below 12 are no longer enlarged to a 12pt floor. A `.size(10)` that used to render at 12pt now renders at 10pt.
+  - Text with `maxLines` is truncated per `overflow` instead of first shrinking to fit. Wrap in `FittedBox(fit: BoxFit.scaleDown)` where shrinking is really wanted.
+  - The system text scale is now respected. `AutoSizeText` ignored it. Apps wrapped in `MediaQuery.withNoTextScaling` see no difference.
+  - `.isIntrinsic`, `minFontSize()`, `maxFontSize()`, `stepGranularity()`, `wrapWords()`, and `overflowReplacement()` are deprecated no-ops, so existing chains still compile. Remove them; they will be deleted in a later release.
+- **`TrimMode` values renamed to lowerCamelCase:** `TrimMode.Length` is now `TrimMode.length`, and `TrimMode.Line` is now `TrimMode.line`.
+- **Removed `ImagePickerSheetWidgetx.pick()` and `ImagePickerSheetWidgetx.pickMultiple()`.** The sheet itself and `pickSource()` remain: show the sheet with `pickSource()`, then call `image_picker` (or any picker) from your app with the returned `ImagePickerSourceX`.
+- **`Patterns` fields are now `static const String`**, and `alphaRegExp` is `final`. Code that reassigned them no longer compiles; pass your own pattern to `hasMatch` instead.
+- **`TrimMode` moved to `utils/enums.dart`.** It is still exported from the barrel, so only code importing `src/widgets/read_more_widgetx.dart` directly needs to change.
+- **`isMaskingEnabledGlobal` moved to `utils/default_configs.dart`.** Same name, same barrel export.
+- **`String.repeat()` now throws `ArgumentError` for a negative count.** It used to return `''`.
+- **Stricter `Patterns`:** `email` is anchored, rejects `a,b@x.com` and trailing junk, and accepts hyphenated domains. `emailEnhanced` is anchored and accepts upper case. The file-type patterns need a real `.ext`, so `'notajpg'.isImage` is now false.
+- **Case converters split words consistently:** `'userID'.toSnakeCase()` is `user_id`, `'HELLO_WORLD'.toCamelCase()` is `helloWorld`, and `'helloWorld'.toPascalCase()` is `HelloWorld` (was `Helloworld`).
+- **`ColorX.toHex()` returns upper case** (`#2196F3`), as its doc always said.
+- **`MapX.getOrDefault` returns a stored `null`** instead of the default; the default is only for a missing key.
+- **Removed the `DurationX` `*` operator.** It was unreachable — `Duration`'s own `operator *(num)` always won — so `duration * 2.5` behaves exactly as before.
+- **`AsyncBuilderWidgetx` no longer refetches when `future` is a new closure.** Every rebuild passed a new closure, so every rebuild refetched. Use `reloadOn` or `retry()`.
+- **`SwiperWidgetx.pageController` is now a getter** backed by a controller the carousel owns and disposes. It throws `StateError` while that widget instance is not mounted.
+- **`VxTextBuilder.make()` no longer forces `softWrap: true` / `overflow: clip`**, so an ambient `DefaultTextStyle` (AppBar titles, ListTile) applies. Size presets (`xs`…`xl6`, `scale()`) scale the themed or style font size instead of a fixed 14; with no size set, output is unchanged.
+- **`ScrollxExtensions` on a controller attached to several views:** the jump/animate members move every view, and the getters report on the most recently attached one.
+- **`IterableAsyncX.mapParallel` throws `ArgumentError` for `concurrency <= 0`** in release builds too.
+- **`StepperIndicatorWidgetx` labels** are single-line, use the room between steps, and measure it with a `LayoutBuilder` — a labelled stepper can no longer sit inside `IntrinsicHeight`/`IntrinsicWidth`.
+
+### Added
+- **`GroupedDigitsInputFormatterX`** (`utils/grouped_digits_formatterx.dart`): a `TextInputFormatter` that keeps only digits and groups them as you type.
+  - Presets: `.cnic()` for `00000-0000000-0` and `.pkMobile()` for `0300-1234567`. Any other grouping works through `groupLengths` and `separator`.
+  - Pasted text is reformatted, and input past the last group is dropped.
+  - The caret stays beside the digit it was next to when editing mid-number.
+  - Backspacing over a separator deletes the digit before it.
+  - `format()` formats a string outside a text field.
+  - Replaces `mask_text_input_formatter` for digit masks.
+- **`FieldTypeX.cnic`** on `TextFieldWidgetx`: the CNIC mask, the numeric keyboard, a badge icon, and validation against `Patterns.cnic`. The message comes from the new `defaultFieldInvalidCnicMessageGlobal`. Adding an enum value breaks exhaustive `switch`es over `FieldTypeX` in your own code.
+- **`StringExtension.formatCnic`**: formats 13 digits as `00000-0000000-0` and returns anything else unchanged. **`StringExtension.isCnic`**: accepts a CNIC with dashes or as 13 bare digits.
+- **`StringExtension.ifBlank(fallback)`** returns `fallback` when the string is null, empty, or only whitespace, and the string unchanged otherwise. It replaces the inline `value.trim().isEmpty ? fallback : value`.
+- **`DateTimeExt.format(pattern)`** formats with `intl`-style tokens without depending on `intl`. Example: `date.format('d MMM, h:mm a')` → `'5 Mar, 2:05 PM'`.
+  - Tokens: `yyyy`/`yy`/`y`, `MMMM`/`MMM`/`MM`/`M`, `dd`/`d`, `EEEE`/`EEE`, `HH`/`H`, `hh`/`h`, `mm`/`m`, `ss`/`s`, `SSS`, `a`.
+  - Text in single quotes is copied literally, and `''` is a quote.
+  - Output is English only. Keep `intl` for localised dates.
+- **`DurationX.toClock()`** formats a duration as a clock reading: `'04:59'`, or `'1:04:59'` from one hour up. `CountdownTimerWidgetx` now uses it in place of its private formatter, with unchanged output.
+- **`Patterns.cnicDigits`**: a CNIC without dashes.
+- **`WidgetX.toPngBytes()`**: renders a widget off-screen to PNG bytes, sized to the widget, for custom map markers, share images, and thumbnails.
+  - Ported from the identical `createImageFromWidget` helpers in two apps, with three fixes: the off-screen tree, image, and focus manager are now disposed after each capture; `textDirection` is honoured; and `view` can be injected for tests.
+- **`DateTimeExt.shiftDaysX(days)`** moves a date by calendar days, keeping the wall-clock time across a daylight-saving change. `addDays`, `subtractDays`, `daysAgo`, and `daysFromNow` now use it.
+- **`PaginatedListWidgetx.reloadOn`**: restarts from page 1 when it changes, for search and filters. A changed fetcher is used by the next page or refresh without refetching on rebuild.
+- **`VxTextBuilder.fromText(Text)`**, behind `Text.text`: carries the source's style, `maxLines`, `textAlign`, `overflow`, `softWrap`, `strutStyle`, key, and `Text.rich` spans.
+- **`StringExtension.hasMatch(pattern, caseSensitive:)`** and **`Patterns.alpha`**.
+
+### Changed
+- `ConnectivityBannerWidgetx.verifyConnection` now applies to every status from `statusStream`. Previously an injected stream bypassed it.
+
+### Fixed
+- **Strings:** `isInt`, `hasMatch` and the validators, `splitAfter`, `prefixText`, and `suffixText` no longer throw or print `null` on a null receiver. `toIntX` parses negatives and returns the default on overflow or hex. `maskEmail` no longer throws on `'@x.com'`. `ellipsize` no longer throws when `maxLength` is shorter than the ellipsis. `splitBetween` stops at the first end match. `formatNumberWithComma` leaves decimals alone. `countWords` is 0 for empty text. `reverse` keeps whitespace and emoji. `removeAllWhiteSpace` removes trailing spaces. File-type checks ignore case.
+- **`Patterns`:** `url` accepts `localhost` and IPv4 hosts; `creditCard` accepts 2-series Mastercard.
+- **Dates and numbers:** `timeAgo` reads `'in 3 days'` for the future (was `'Just now'`). `startOfWeek`, `endOfWeek`, `isYesterday`, and `isTomorrow` use calendar days, so a DST change can't shift them. `DateTime.format` pads `SSSS`+ correctly. `ordinal` handles negatives. `Duration.format()` signs negative durations.
+- **`toPngBytes`** builds at the capture pixel ratio, so `Image.asset` picks the 2x/3x variant instead of a blurry 1x.
+- **`GroupedDigitsInputFormatterX`:** forward-delete over a separator deletes the digit after it; typing into a full field is rejected instead of pushing out the last digit.
+- **`ConnectivityBannerWidgetx`:** a `verifyConnection` still running when `statusStream` is swapped is discarded.
+- **`ScrollxExtensions`:** `animateToTop` / `animateToBottom` are no-ops on an unattached controller.
+- **`ContextX.pickDate`:** the default `initialDate` is clamped into `firstDate`…`lastDate`, so date-of-birth pickers no longer assert.
+- **`VxTextBuilder`:** `Text.text.when(false)` no longer throws; zero-blur shadows render.
+- **`ListSplit.chunked(size <= 0)`** returns a copy (or `[]`), not the receiver.
+- **`AsyncBuilderWidgetx`:** a failed pull-to-refresh with no prior data no longer throws; `keepPreviousData: false` shows loading after a `reloadOn` change; `retry()` calls `onRefresh` only after success.
+- **`PaginatedListWidgetx`:** dropping a caller `controller` falls back to the fetcher.
+- **`TextFieldWidgetx`:** adding or removing `controller`, `focusNode`, or `form` between builds no longer crashes.
+- **`SearchBarWidgetx`:** no `setState` after dispose with a caller controller; swapped controllers are followed; cursor moves don't fire `onChanged`/`onSearch`; Clear fires `onSearch('')` once; the clear button shows for pre-filled text.
+- **`PinInputWidgetx`:** paste and SMS autofill fill every box; backspace on an empty box reports `onChanged`; `length` can change at runtime.
+- **`QuantityStepperWidgetx`:** holding minus stops at `min` and never removes the item; the display resyncs when the parent rejects a change.
+- **`FormX`:** `fill()` with surrounding whitespace no longer marks the form dirty.
+- **`ReadMoreWidgetx`:** `TrimMode.line` renders (it showed nothing); length mode no longer splits an emoji; the tap recognizer and text painter are disposed.
+- **`SegmentedControlWidgetx(expand: false)`** and **`TimelineWidgetx(dashPendingConnector: true)`** no longer throw.
+- **`SwiperWidgetx`:** accepts integer `viewportFraction`/`initialPage`, renders nothing for zero items, and no longer leaks a `PageController` per rebuild.
+- **`CircularProgressWidgetx`:** NaN or infinite values show 0%.
+- **`AvatarWidgetx`:** initials from emoji names no longer throw.
+- **`CountdownTimerWidgetx`:** `onFinished` fires on the tick that reaches zero, and a changed `duration` restarts the countdown.
+- **`RatingWidgetx`:** follows changes to `initialRating` and `starCount`.
+- **`StepperIndicatorWidgetx`:** labels are no longer ellipsised to the circle's width; `totalSteps <= 0` renders nothing.
+- **`ChipsFilterWidgetx`:** single mode honours only the first selected item.
+- **`ScrollToTopWidgetx`:** shows the button when the list starts past `threshold`.
+- `ListxWidgetExtensions.toListView()`, `ListxWidgetExtensions.toGrid()`, and `PaginatedListWidgetx` now pass their `cacheExtent` to Flutter's `scrollCacheExtent` as `ScrollCacheExtent.pixels(...)`. The old `cacheExtent` argument was deprecated in Flutter 3.41. Your `double? cacheExtent` parameter is unchanged and behaves the same.
+- The `VxTextBuilder` size presets (`xs` … `xl5`) now compound with the system text scale instead of replacing it. They previously set a fixed `TextScaler`. At the default text scale, output is unchanged.
+- `VxTextBuilder` text no longer throws under dry layout. `AutoSizeText`'s render object did not implement `computeDryLayout`.
+- A `verifyConnection` call that finishes after a newer status arrived is now discarded, so a slow check can no longer flip the banner back to online after the device went offline.
+
 ## 0.7.1
 
 ### Changed

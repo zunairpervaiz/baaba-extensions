@@ -17,13 +17,12 @@ import 'package:baaba_extensions/src/mixins/render_mixin.dart';
 import 'package:baaba_extensions/src/utils/none_widget.dart';
 import 'package:baaba_extensions/src/utils/widget_builder.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_auto_size_text/flutter_auto_size_text.dart';
 
-/// Flutter widget that automatically resizes text to fit perfectly within its bounds.
+/// Fluent builder for a [Text] widget — chain modifiers, then call [make].
 ///
-/// All size constraints as well as maxLines are taken into account. If the text
-/// overflows anyway, you should check if the parent widget actually constraints
-/// the size of this widget.
+/// [make] builds a plain [Text] at exactly the size you set: nothing is shrunk
+/// to fit, and the system text scale is respected. For text that should shrink
+/// to fit its box, wrap the result in `FittedBox(fit: BoxFit.scaleDown, child: ...)`.
 @protected
 class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBuilder>, VxRenderMixin<VxTextBuilder> {
   VxTextBuilder(String this._text) {
@@ -33,11 +32,32 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
 
   VxTextBuilder.existing(String this._text, this._textStyle) {
     setChildToColor(this);
+    setChildForRender(this);
+  }
+
+  /// Creates a builder that rebuilds [source], keeping its text or text span,
+  /// style, key, and layout settings.
+  VxTextBuilder.fromText(Text source)
+      : _text = source.data,
+        _textSpan = source.textSpan,
+        _textStyle = source.style,
+        _source = source,
+        _maxLines = source.maxLines,
+        _textAlign = source.textAlign,
+        _overflow = source.overflow,
+        _softWrap = source.softWrap,
+        _strutStyle = source.strutStyle {
+    setChildToColor(this);
+    setChildForRender(this);
   }
 
   String? _text, _fontFamily;
+  InlineSpan? _textSpan;
+  // The Text this builder was made from, if any; supplies the settings the
+  // builder has no setter for (key, textDirection, semanticsLabel, ...).
+  Text? _source;
 
-  double? _scaleFactor, _fontSize, _minFontSize, _letterSpacing, _lineHeight, _maxFontSize, _stepGranularity, _wordSpacing;
+  double? _scaleFactor, _fontSize, _letterSpacing, _lineHeight, _wordSpacing;
   int? _maxLines;
   FontWeight? _fontWeight;
   TextAlign? _textAlign;
@@ -47,13 +67,11 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
   StrutStyle? _strutStyle;
   TextOverflow? _overflow;
   TextBaseline? _textBaseline;
-  Widget? _replacement;
-  bool? _softWrap, _wrapWords;
+  bool? _softWrap;
+  bool _hasShadow = false;
   double _shadowBlur = 0.0;
   Color _shadowColor = const Color(0xFF000000);
   Offset _shadowOffset = Offset.zero;
-
-  bool _isIntrinsic = false;
 
   /// The text to display.
   ///
@@ -69,16 +87,13 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
     return this;
   }
 
-  /// [LayoutBuilder] does not support using IntrinsicWidth or IntrinsicHeight.
-  ///
-  /// Note: Use it only for few widgets like [DataTable], [IntrinsicWidth] or
-  /// [IntrinsicHeight] etc which doesn't work well with Vx
-  /// but using [isIntrinsic] will disable [AutoSizeText].
-  VxTextBuilder get isIntrinsic => this.._isIntrinsic = true;
+  /// Returns this builder unchanged; [make] always builds a plain [Text] now.
+  @Deprecated('Has no effect since 0.8.0 — make() always builds a plain Text. Remove the call.')
+  VxTextBuilder get isIntrinsic => this;
 
   /// An optional maximum number of lines for the text to span, wrapping if necessary.
-  /// If the text exceeds the given number of lines, it will be resized according
-  /// to the specified bounds and if necessary truncated according to [overflow].
+  /// If the text exceeds the given number of lines, it is truncated according
+  /// to [overflow].
   ///
   /// If this is 1, text will not wrap. Otherwise, text will be wrapped at the
   /// edge of the box.
@@ -107,14 +122,9 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
     return this;
   }
 
-  /// Whether words which don't fit in one line should be wrapped.
-  ///
-  /// If false, the fontSize is lowered as far as possible until all words fit
-  /// into a single line.
-  VxTextBuilder wrapWords(bool wrapWords) {
-    _wrapWords = wrapWords;
-    return this;
-  }
+  /// Returns this builder unchanged; text is no longer auto-sized.
+  @Deprecated('Has no effect since 0.8.0 — text is no longer auto-sized. Remove the call.')
+  VxTextBuilder wrapWords(bool wrapWords) => this;
 
   /// The common baseline that should be aligned between this text span and its
   /// parent text span, or, for the root text spans, with the line box.
@@ -138,41 +148,22 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
     return this;
   }
 
-  ///
-  /// The minimum text size constraint to be used when auto-sizing text.
-  ///
-  VxTextBuilder minFontSize(double minFontSize) {
-    _minFontSize = minFontSize;
-    return this;
-  }
+  /// Returns this builder unchanged; text is no longer auto-sized.
+  @Deprecated('Has no effect since 0.8.0 — text is no longer auto-sized. Use size() for the font size, or FittedBox(fit: BoxFit.scaleDown) to shrink to fit.')
+  VxTextBuilder minFontSize(double minFontSize) => this;
 
-  ///
-  ///  The maximum text size constraint to be used when auto-sizing text.
-  ///
-  VxTextBuilder maxFontSize(double maxFontSize) {
-    _maxFontSize = maxFontSize;
-    return this;
-  }
+  /// Returns this builder unchanged; text is no longer auto-sized.
+  @Deprecated('Has no effect since 0.8.0 — text is no longer auto-sized. Use size() for the font size, or FittedBox(fit: BoxFit.scaleDown) to shrink to fit.')
+  VxTextBuilder maxFontSize(double maxFontSize) => this;
 
-  /// The step size in which the font size is being adapted to constraints.
-  ///
-  /// The Text scales uniformly in a range between [minFontSize] and
-  /// [maxFontSize].
-  /// Each increment occurs as per the step size set in stepGranularity.
-  ///
-  /// Most of the time you don't want a stepGranularity below 1.0.
-  ///
-  VxTextBuilder stepGranularity(double stepGranularity) {
-    _stepGranularity = stepGranularity;
-    return this;
-  }
+  /// Returns this builder unchanged; text is no longer auto-sized.
+  @Deprecated('Has no effect since 0.8.0 — text is no longer auto-sized. Remove the call.')
+  VxTextBuilder stepGranularity(double stepGranularity) => this;
 
-  /// If the text is overflowing and does not fit its bounds, this widget is
-  /// displayed instead.
-  VxTextBuilder overflowReplacement(Widget overflowReplacement) {
-    _replacement = overflowReplacement;
-    return this;
-  }
+  /// Returns this builder unchanged; text is no longer auto-sized, so it never
+  /// swaps in a replacement.
+  @Deprecated('Has no effect since 0.8.0 — text is no longer auto-sized. Use overflow() or maxLines() instead.')
+  VxTextBuilder overflowReplacement(Widget overflowReplacement) => this;
 
   /// Set [FontWeight] for the text
   VxTextBuilder fontWeight(FontWeight weight) {
@@ -357,8 +348,10 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
   /// Sets [textScaleFactor] to custom value
   VxTextBuilder scale(double value) => _fontSizedText(child: this, scaleFactor: value);
 
+  // The factor is applied in make(), to the explicit size(), else the theme or
+  // text style's font size, else 14 — so `titleLarge(ctx).xl` scales the
+  // titleLarge size, not a hardcoded 14.
   VxTextBuilder _fontSizedText({required double scaleFactor, required VxTextBuilder child}) {
-    _fontSize = _fontSize ?? 14.0;
     _scaleFactor = scaleFactor;
     return this;
   }
@@ -428,14 +421,14 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
   /// Sets [TextDecoration] as [TextDecoration.overline]
   VxTextBuilder get overline => this.._decoration = TextDecoration.overline;
 
-  /// Converts the text to fully uppercase.
-  VxTextBuilder get uppercase => this.._text = _text!.toUpperCase();
+  /// Converts the text to fully uppercase. Has no effect on a text span.
+  VxTextBuilder get uppercase => this.._text = _text?.toUpperCase();
 
-  /// Converts the text to fully lowercase.
-  VxTextBuilder get lowercase => this.._text = _text!.toLowerCase();
+  /// Converts the text to fully lowercase. Has no effect on a text span.
+  VxTextBuilder get lowercase => this.._text = _text?.toLowerCase();
 
-  /// Converts the text to first letter of very word as uppercase.
-  VxTextBuilder get capitalize => this.._text = _text!.trim().capitalizeAllWords();
+  /// Converts the text to first letter of very word as uppercase. Has no effect on a text span.
+  VxTextBuilder get capitalize => this.._text = _text?.trim().capitalizeAllWords();
 
   /// Sets [lineHeight] to 0.75
   VxTextBuilder get heightTight => this.._lineHeight = 0.75;
@@ -454,18 +447,25 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
 
   /// Sets [Shadow] as specified in request *#127*
   VxTextBuilder shadow(double offsetX, double offsetY, double blurRadius, Color color) => this
+    .._hasShadow = true
     .._shadowBlur = blurRadius
     .._shadowColor = color
     .._shadowOffset = Offset(offsetX, offsetY);
 
   /// Sets [Shadow] blur
-  VxTextBuilder shadowBlur(double blur) => this.._shadowBlur = blur;
+  VxTextBuilder shadowBlur(double blur) => this
+    .._hasShadow = true
+    .._shadowBlur = blur;
 
   /// Sets [Shadow] color
-  VxTextBuilder shadowColor(Color color) => this.._shadowColor = color;
+  VxTextBuilder shadowColor(Color color) => this
+    .._hasShadow = true
+    .._shadowColor = color;
 
   /// Sets [Shadow] offset
-  VxTextBuilder shadowOffset(double dx, double dy) => this.._shadowOffset = Offset(dx, dy);
+  VxTextBuilder shadowOffset(double dx, double dy) => this
+    .._hasShadow = true
+    .._shadowOffset = Offset(dx, dy);
 
   @override
   Widget make({Key? key}) {
@@ -473,10 +473,14 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
       return const NoneWidget();
     }
     final sdw = [Shadow(blurRadius: _shadowBlur, color: _shadowColor, offset: _shadowOffset)];
+    final baseSize = _fontSize ?? _themedStyle?.fontSize ?? _textStyle?.fontSize ?? 14.0;
 
     final ts = TextStyle(
       color: velocityColor,
-      fontSize: _fontSize,
+      // The xs…xl5 presets multiply the size here rather than through a
+      // TextScaler, which would replace the system text scale instead of
+      // compounding with it.
+      fontSize: _scaleFactor == null ? _fontSize : baseSize * _scaleFactor!,
       fontStyle: _fontStyle,
       fontFamily: _fontFamily,
       fontWeight: _fontWeight,
@@ -485,45 +489,61 @@ class VxTextBuilder extends VxWidgetBuilders<Widget> with VxColorMixin<VxTextBui
       height: _lineHeight,
       textBaseline: _textBaseline ?? TextBaseline.alphabetic,
       wordSpacing: _wordSpacing,
-      shadows: _shadowBlur > 0 ? sdw : null,
+      shadows: _hasShadow ? sdw : null,
     );
+    final style = _themedStyle?.merge(ts) ?? _textStyle?.merge(ts) ?? ts;
+    final src = _source;
 
-    final textWidget = _isIntrinsic
-        ? Text(
-            _text!,
-            key: key,
-            textAlign: _textAlign,
-            maxLines: _maxLines,
-            textScaler: _scaleFactor == null ? null : TextScaler.linear(_scaleFactor!),
-            style: _themedStyle?.merge(ts) ?? _textStyle?.merge(ts) ?? ts,
-            softWrap: _softWrap ?? true,
-            overflow: _overflow ?? TextOverflow.clip,
-            strutStyle: _strutStyle,
-          )
-        : AutoSizeText(
-            _text!,
-            key: key,
-            textAlign: _textAlign,
-            maxLines: _maxLines,
-            textScaleFactor: _scaleFactor,
-            style: _themedStyle?.merge(ts) ?? _textStyle?.merge(ts) ?? ts,
-            softWrap: _softWrap ?? true,
-            minFontSize: _minFontSize ?? 12,
-            maxFontSize: _maxFontSize ?? double.infinity,
-            stepGranularity: _stepGranularity ?? 1,
-            overflowReplacement: _replacement,
-            overflow: _overflow ?? TextOverflow.clip,
-            strutStyle: _strutStyle,
-            wrapWords: _wrapWords ?? true,
-          );
-
-    return textWidget;
+    // softWrap and overflow stay null unless set, so an ambient
+    // DefaultTextStyle (e.g. an AppBar title's ellipsis) still applies.
+    if (_textSpan != null) {
+      return Text.rich(
+        _textSpan!,
+        key: key ?? src?.key,
+        textAlign: _textAlign,
+        maxLines: _maxLines,
+        style: style,
+        softWrap: _softWrap,
+        overflow: _overflow,
+        strutStyle: _strutStyle,
+        textDirection: src?.textDirection,
+        locale: src?.locale,
+        textScaler: src?.textScaler,
+        semanticsLabel: src?.semanticsLabel,
+        semanticsIdentifier: src?.semanticsIdentifier,
+        textWidthBasis: src?.textWidthBasis,
+        textHeightBehavior: src?.textHeightBehavior,
+        selectionColor: src?.selectionColor,
+      );
+    }
+    return Text(
+      _text ?? '',
+      key: key ?? src?.key,
+      textAlign: _textAlign,
+      maxLines: _maxLines,
+      style: style,
+      softWrap: _softWrap,
+      overflow: _overflow,
+      strutStyle: _strutStyle,
+      textDirection: src?.textDirection,
+      locale: src?.locale,
+      textScaler: src?.textScaler,
+      semanticsLabel: src?.semanticsLabel,
+      semanticsIdentifier: src?.semanticsIdentifier,
+      textWidthBasis: src?.textWidthBasis,
+      textHeightBehavior: src?.textHeightBehavior,
+      selectionColor: src?.selectionColor,
+    );
   }
 }
 
 extension VxTextExtensions on Text {
   /// Converts this [Text] into a [VxTextBuilder] for further fluent styling.
-  VxTextBuilder get text => VxTextBuilder.existing(data!, style);
+  ///
+  /// Works for [Text.rich] too, and carries over the source's key, style,
+  /// and layout settings (maxLines, textAlign, overflow, softWrap, strutStyle,
+  /// textDirection, semanticsLabel, ...).
+  VxTextBuilder get text => VxTextBuilder.fromText(this);
 }
 
 extension VxStringTextExtensions on String {

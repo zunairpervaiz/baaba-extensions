@@ -1,15 +1,12 @@
 # baaba_extensions
 
-Flutter/Dart extension package. Dart SDK `^3.12.0`, Flutter `>=3.44.0` (floor set by `fluttertoast ^10.0.0`).
+Flutter/Dart extension package. Dart SDK `^3.12.0`, Flutter `>=3.44.0` (floor originally set by `fluttertoast ^10.0.0`, removed in 0.8.0; not lowered because older SDKs were not verified).
 
 ## Dependencies
-- `fluttertoast: ^10.0.0` — used only in `StringExtension.toastString()`
-- `flutter_auto_size_text: ^5.0.0` — used only in `VxTextBuilder`
-- `connectivity_plus: ^7.3.1` — used only in `ConnectivityBannerWidgetx`
-- `image_picker: ^1.2.3` — used only in `ImagePickerSheetWidgetx`
+- None beyond the Flutter SDK.
 - Linting: `flutter_lints ^6.0.0` (inherits `flutter.yaml` rules)
 
-Keep the dependency list small. `connectivity_plus` and `image_picker` are **platform plugins**, so every consuming app inherits them whether or not it uses those two widgets, and `image_picker` additionally requires `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` in the app's iOS `Info.plist`. Do not add another plugin dependency without a deliberate decision; prefer an injection seam (as `ConnectivityBannerWidgetx.statusStream` and `ImagePickerSheetWidgetx.picker` provide) so the widget stays testable and the plugin stays replaceable.
+**Zero runtime dependencies — keep it that way.** 0.8.0 removed `fluttertoast`, `connectivity_plus`, and `image_picker`, because every consuming app inherited their native code and permissions whether or not it used them, and none of the consuming apps did. It also removed `flutter_auto_size_text`. `VxTextBuilder.make()` used to build an `AutoSizeText`, and that enlarged sub-12pt text to 12pt, ignored the system text scale, threw under dry layout, and gave same-rank labels different sizes depending on string length. meri-pehchan opted out of it 88 times. `.make()` now builds a plain `Text`. The old auto-size setters (`isIntrinsic`, `minFontSize`, `maxFontSize`, `stepGranularity`, `wrapWords`, `overflowReplacement`) remain as `@Deprecated` no-ops until a later release. Do not add a dependency. When a widget needs platform data, take it as a parameter and let the app own the plugin, as `ConnectivityBannerWidgetx.statusStream` (required `Stream<bool>`) and `ImagePickerSheetWidgetx.pickSource` (returns the choice; the app does the picking) do.
 
 ## Folder Layout
 
@@ -38,10 +35,11 @@ lib/
       render_mixin.dart            # VxRenderMixin<T>
       vx_mixin.dart                # Vx
     utils/
-      default_configs.dart         # mutable global config vars (toast, dialog, pagination, button,
+      default_configs.dart         # mutable global config vars (dialog, pagination, button,
                                    #   field, sheet, alert, async, connectivity, image picker)
       enums.dart                   # package-wide enums — see the enum list below
       formx.dart                   # FormX<K> — generic multi-field form controller
+      grouped_digits_formatterx.dart # GroupedDigitsInputFormatterX — CNIC / mobile / custom digit masks
       none_widget.dart             # INTERNAL — NoneWidget; not exported
       paginatorx.dart              # PaginatorX<T> + PageX<T> — pagination controller
       patterns.dart                # Patterns class — static regex strings only
@@ -69,7 +67,7 @@ lib/
       pin_input_widgetx.dart
       quantity_stepper_widgetx.dart
       rating_widgetx.dart
-      read_more_widgetx.dart        # also defines TrimMode enum (see Known Issues)
+      read_more_widgetx.dart
       restart_app_widgetx.dart
       scroll_to_top_widgetx.dart
       search_bar_widgetx.dart
@@ -86,9 +84,7 @@ test/
 ```
 
 ### Enums in `utils/enums.dart`
-`MaskType`, `LoadingOverlayMode`, `PaginationStatus`, `PaginationErrorMode`, `ButtonVariantX`, `ButtonSizeX`, `AlertTypeX`, `TimelineItemStateX`, `ChipsSelectionModeX`, `ImagePickerSourceX`, `FieldTypeX`.
-
-`TrimMode` is the one exception, still declared in `widgets/read_more_widgetx.dart` — see Known Issues.
+`MaskType`, `TrimMode`, `LoadingOverlayMode`, `PaginationStatus`, `PaginationErrorMode`, `ButtonVariantX`, `ButtonSizeX`, `AlertTypeX`, `TimelineItemStateX`, `ChipsSelectionModeX`, `ImagePickerSourceX`, `FieldTypeX`.
 
 ## Hard Rules
 
@@ -152,7 +148,6 @@ Both of these have already caused real bugs here. Check for them whenever adding
 - All mutable global config lives only in `utils/default_configs.dart`.
 - Extension bodies read globals; they never reassign them directly.
 - To toggle masking at call-site use the `isMaskingEnabled` named parameter — do not mutate the global.
-- **Known violation:** `isMaskingEnabledGlobal` is currently declared in `stringx_extensions.dart` (line 11) instead of `default_configs.dart`. Move it there when refactoring.
 
 ### Regex
 - All regex patterns belong in `Patterns` — never define inline `RegExp(r'...')` literals in extension bodies except for trivial single-use cases.
@@ -163,24 +158,15 @@ Both of these have already caused real bugs here. Check for them whenever adding
 - Each extension file should have at least one test group named after the extension.
 - Do not ship the placeholder `Calculator` test — replace it with real extension tests.
 - Every widget gets a `testWidgets` group named after the class. Cover, where they apply: the disposal path (a future or stream landing after unmount must not throw), controller ownership (a caller-supplied controller must survive the widget), and the disabled/loading paths.
-- Anything randomised or time-based takes an injectable seam so tests are deterministic — a seeded `Random`, an injected `statusStream`, an injected `ImagePicker`.
+- Anything randomised or time-based takes an injectable seam so tests are deterministic — a seeded `Random`, an injected `statusStream`.
 
 ### Formatting
 - The repo is **not** uniformly `dart format`ted, and there is no configured page width. Do **not** run `dart format` across `lib/` or `test/` — it reformats unrelated files and buries real changes in whitespace churn. Match the surrounding style by hand.
 
 ## Known Issues
 
-These are confirmed bugs or rule violations to fix in the next patch release. All were re-verified against the working tree as of the 0.7.0 work; line numbers are current.
+None open. The table that used to live here was cleared in 0.8.0. When a confirmed bug or rule violation is found and not fixed straight away, list it here with its location.
 
-| Issue | Location | Description |
-|---|---|---|
-| `isMaskingEnabledGlobal` in wrong file | `stringx_extensions.dart:11` | Violates global-state rule; move to `default_configs.dart` and remove from here |
-| `repeat()` never throws | `stringx_extensions.dart:217` | `ArgumentError(...)` is constructed but not thrown — add `throw` keyword |
-| `isInt` unsafe null dereference | `stringx_extensions.dart:93` | `bool get isInt => this!.isDigit()` — should be `validate().isDigit()` |
-| `toIntX` rejects negative integers | `stringx_extensions.dart:165` | Uses `isDigit()` which rejects `-5`; replace with `int.tryParse` |
-| `Patterns` fields not `const` | `utils/patterns.dart` | 14 fields are `static String` (mutable); all should be `static const String` |
-| `TrimMode` defined inside widget file | `widgets/read_more_widgetx.dart:4` | Enum should live in `utils/enums.dart`, not inside a widget file. Its members `Length`/`Line` also violate `constant_identifier_names` — two of the three outstanding analyzer infos |
-| `alphaRegExp` is mutable top-level var | `stringx_extensions.dart:9` | Should be `final RegExp` or a `static const String` in `Patterns` |
-| Unused type parameter shadows a type | `utils/widget_builder.dart:15` | `VxTextSpanBuilder<TextSpan>` names its type parameter after a real type — the third outstanding analyzer info |
+`flutter analyze` reports no issues. Keep it that way — a new warning means new work, not an accepted baseline.
 
-`flutter analyze` is otherwise clean: the only 3 reported infos are the `TrimMode` constant names and the `widget_builder.dart` type parameter above. Keep it that way — a new warning means new work, not an accepted baseline.
+`ScrollCacheExtent` (the replacement for the deprecated `cacheExtent` on scroll views) is not re-exported by `material.dart`; import it with `import 'package:flutter/rendering.dart' show ScrollCacheExtent;`.

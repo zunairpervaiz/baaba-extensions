@@ -132,12 +132,16 @@ class ChipsFilterWidgetx<T> extends StatelessWidget {
     this.enabled = true,
   });
 
+  // In single mode only the first selected item counts, so a caller that
+  // passes several never sees two chips marked or loses the tapped one.
+  Iterable<T> get _effectiveSelected => mode == ChipsSelectionModeX.single ? selected.take(1) : selected;
+
   void _handleTap(T item) {
-    final isSelected = selected.contains(item);
+    final isSelected = _effectiveSelected.contains(item);
 
     if (mode == ChipsSelectionModeX.single) {
       if (isSelected) {
-        onChanged(allowEmpty ? const [] : selected);
+        onChanged(allowEmpty ? const [] : [item]);
       } else {
         onChanged([item]);
       }
@@ -151,13 +155,14 @@ class ChipsFilterWidgetx<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSelected = _effectiveSelected;
     final chips = [
       for (final item in items)
         _FilterChip(
           label: labelBuilder?.call(item) ?? item.toString(),
           icon: iconBuilder?.call(item),
           count: countBuilder?.call(item),
-          isSelected: selected.contains(item),
+          isSelected: effectiveSelected.contains(item),
           onTap: enabled ? () => _handleTap(item) : null,
           config: this,
         ),

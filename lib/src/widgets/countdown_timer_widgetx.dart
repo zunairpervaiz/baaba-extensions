@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../durationx_extensions.dart';
+
 /// A countdown timer that auto-ticks every second and fires [onFinished]
 /// when it reaches zero.
 ///
@@ -22,6 +24,10 @@ import 'package:flutter/material.dart';
 /// key.currentState?.reset();
 /// ```
 class CountdownTimerWidgetx extends StatefulWidget {
+  /// The time to count down from.
+  ///
+  /// Changing it starts the countdown over from the new value; it keeps
+  /// ticking if it was running or [autoStart] is set.
   final Duration duration;
   final VoidCallback? onFinished;
   final void Function(Duration remaining)? onTick;
@@ -45,6 +51,20 @@ class CountdownTimerWidgetxState extends State<CountdownTimerWidgetx> {
     super.initState();
     _remaining = widget.duration;
     if (widget.autoStart) start();
+  }
+
+  @override
+  void didUpdateWidget(covariant CountdownTimerWidgetx oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.duration == oldWidget.duration) return;
+    // A new duration starts the countdown over. It keeps ticking if it was
+    // already running or [CountdownTimerWidgetx.autoStart] is set, and
+    // otherwise waits for [start], as on first mount.
+    final wasRunning = _timer?.isActive ?? false;
+    _timer?.cancel();
+    _remaining = widget.duration;
+    _isFinished = false;
+    if (widget.autoStart || wasRunning) start();
   }
 
   @override
@@ -72,21 +92,20 @@ class CountdownTimerWidgetxState extends State<CountdownTimerWidgetx> {
   }
 
   void _tick(Timer _) {
-    if (_remaining.inSeconds <= 0) {
+    final next = _remaining - const Duration(seconds: 1);
+    if (next <= Duration.zero) {
+      // Finish on the tick that reaches zero, not one tick later.
       _timer?.cancel();
-      setState(() => _isFinished = true);
+      setState(() {
+        _remaining = Duration.zero;
+        _isFinished = true;
+      });
+      widget.onTick?.call(_remaining);
       widget.onFinished?.call();
     } else {
-      setState(() => _remaining -= const Duration(seconds: 1));
+      setState(() => _remaining = next);
       widget.onTick?.call(_remaining);
     }
-  }
-
-  String _format(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
   @override
@@ -94,6 +113,6 @@ class CountdownTimerWidgetxState extends State<CountdownTimerWidgetx> {
     if (widget.builder != null) {
       return widget.builder!(context, _remaining, _isFinished);
     }
-    return Text(_isFinished ? '00:00' : _format(_remaining), style: widget.textStyle ?? Theme.of(context).textTheme.titleMedium);
+    return Text((_isFinished ? Duration.zero : _remaining).toClock(), style: widget.textStyle ?? Theme.of(context).textTheme.titleMedium);
   }
 }

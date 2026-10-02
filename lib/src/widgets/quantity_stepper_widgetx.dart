@@ -6,9 +6,11 @@ import 'package:flutter/services.dart';
 /// A compact `− n +` quantity selector, as used in carts and order screens.
 ///
 /// The value is controlled by the parent: [onChanged] fires with the new
-/// quantity and the widget renders whatever [value] it is given next. Holding
-/// a button repeats it, and [onRemove] turns the minus button into a delete
-/// action once [min] is reached.
+/// quantity and the widget renders whatever [value] it is given next — a
+/// parent that rejects a change and rebuilds with the old value snaps the
+/// display back. Holding a button repeats it, and [onRemove] turns the minus
+/// button into a delete action once [min] is reached. A held minus button
+/// stops at [min]; removing always takes a separate tap.
 ///
 /// Example:
 /// ```dart
@@ -163,8 +165,14 @@ class _QuantityStepperWidgetxState extends State<QuantityStepperWidgetx> {
   @override
   void didUpdateWidget(covariant QuantityStepperWidgetx oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value && widget.value != _value) {
-      _value = widget.value.clamp(widget.min, widget.max);
+    // Controlled: whenever the parent rebuilds with a value other than the one
+    // displayed — including the same value it passed before, after rejecting a
+    // change — the display follows the parent. The exception is a held button,
+    // which counts ahead of a parent that has not caught up yet; the next
+    // rebuild after release resyncs.
+    final next = widget.value.clamp(widget.min, widget.max);
+    if (next != _value && _repeatTimer == null) {
+      _value = next;
       _syncInput();
     }
   }
@@ -229,14 +237,22 @@ class _QuantityStepperWidgetxState extends State<QuantityStepperWidgetx> {
     _syncInput();
   }
 
-  void _startRepeat(VoidCallback action) {
+  void _startRepeat({required bool decrement}) {
     if (!widget.enableLongPressRepeat) return;
     _repeatTimer?.cancel();
     _repeatTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
-      // Stop as soon as the action can no longer be applied, so the timer does
-      // not spin against a clamped value.
+      // Stop as soon as the step can no longer be applied, so the timer does
+      // not spin against a clamped value. A held minus button stops at the
+      // remove threshold: it must never fall through to onRemove, which would
+      // delete the item without a deliberate tap.
       if (!mounted) return _stopRepeat();
-      action();
+      if (decrement) {
+        if (!_canDecrement || _isAtRemoveThreshold || _value <= widget.min) return _stopRepeat();
+        _decrement();
+      } else {
+        if (!_canIncrement) return _stopRepeat();
+        _increment();
+      }
     });
   }
 
@@ -277,7 +293,7 @@ class _QuantityStepperWidgetxState extends State<QuantityStepperWidgetx> {
               onTap: _canDecrement ? _decrement : null,
               // Holding to remove would be destructive, so repeat is only
               // wired up while the button is still a plain decrement.
-              onLongPressStart: _canDecrement && !_isAtRemoveThreshold ? () => _startRepeat(_decrement) : null,
+              onLongPressStart: _canDecrement && !_isAtRemoveThreshold ? () => _startRepeat(decrement: true) : null,
               onLongPressEnd: _stopRepeat,
               semanticLabel: _isAtRemoveThreshold ? 'Remove' : 'Decrease quantity',
             ),
@@ -292,7 +308,7 @@ class _QuantityStepperWidgetxState extends State<QuantityStepperWidgetx> {
               color: _canIncrement ? foreground : disabled,
               borderRadius: BorderRadius.only(topRight: radius.topRight, bottomRight: radius.bottomRight),
               onTap: _canIncrement ? _increment : null,
-              onLongPressStart: _canIncrement ? () => _startRepeat(_increment) : null,
+              onLongPressStart: _canIncrement ? () => _startRepeat(decrement: false) : null,
               onLongPressEnd: _stopRepeat,
               semanticLabel: 'Increase quantity',
             ),

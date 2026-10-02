@@ -25,7 +25,7 @@ extension ColorX on Color {
     final gi = (g * 255).round().toRadixString(16).padLeft(2, '0');
     final bi = (b * 255).round().toRadixString(16).padLeft(2, '0');
     final hex = includeAlpha ? '${(a * 255).round().toRadixString(16).padLeft(2, '0')}$ri$gi$bi' : '$ri$gi$bi';
-    return leadingHash ? '#$hex' : hex;
+    return leadingHash ? '#${hex.toUpperCase()}' : hex.toUpperCase();
   }
 
   /// Returns true when the color's luminance is above 0.5 (perceived as light).

@@ -132,29 +132,32 @@ class SegmentedControlWidgetx<T> extends StatelessWidget {
     // throwing, so a nullable or out-of-range selection is safe to pass.
     final selectedIndex = items.indexOf(value);
 
-    Widget control = LayoutBuilder(
-      builder: (context, constraints) {
-        final totalWidth = expand && constraints.hasBoundedWidth ? constraints.maxWidth : (constraints.hasBoundedWidth ? constraints.maxWidth : 0.0);
-        final segmentWidth = totalWidth > 0 ? (totalWidth - indicatorPadding * 2) / items.length : 0.0;
+    // No LayoutBuilder here: with expand false the control is wrapped in
+    // IntrinsicWidth, and LayoutBuilder cannot report intrinsic sizes. The
+    // indicator is placed by alignment instead, as a 1/n-wide slice of the
+    // track, which needs no measured width.
+    final count = items.length;
+    final indicatorX = count == 1 ? 0.0 : -1.0 + 2.0 * selectedIndex / (count - 1);
 
-        return Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: track,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: borderWidth <= 0 ? null : Border.all(color: borderColor ?? scheme.outline.withValues(alpha: 0.4), width: borderWidth),
-          ),
-          padding: EdgeInsets.all(indicatorPadding),
-          child: Stack(
-            children: [
-              if (selectedIndex >= 0 && segmentWidth > 0)
-                AnimatedPositioned(
-                  duration: animationDuration,
-                  curve: animationCurve,
-                  left: segmentWidth * selectedIndex,
-                  top: 0,
-                  bottom: 0,
-                  width: segmentWidth,
+    Widget control = Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: track,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: borderWidth <= 0 ? null : Border.all(color: borderColor ?? scheme.outline.withValues(alpha: 0.4), width: borderWidth),
+      ),
+      padding: EdgeInsets.all(indicatorPadding),
+      child: Stack(
+        children: [
+          if (selectedIndex >= 0)
+            Positioned.fill(
+              child: AnimatedAlign(
+                duration: animationDuration,
+                curve: animationCurve,
+                alignment: Alignment(indicatorX, 0),
+                child: FractionallySizedBox(
+                  widthFactor: 1 / count,
+                  heightFactor: 1,
                   child: Container(
                     decoration: BoxDecoration(
                       color: indicator,
@@ -163,28 +166,28 @@ class SegmentedControlWidgetx<T> extends StatelessWidget {
                     ),
                   ),
                 ),
-              Row(
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    Expanded(
-                      child: _Segment(
-                        label: labelBuilder?.call(items[i]) ?? items[i].toString(),
-                        icon: iconBuilder?.call(items[i]),
-                        showLabel: showLabels,
-                        iconSize: iconSize,
-                        color: i == selectedIndex ? selectedText : unselectedText,
-                        isSelected: i == selectedIndex,
-                        labelStyle: labelStyle,
-                        animationDuration: animationDuration,
-                        onTap: !enabled || i == selectedIndex ? null : () => onChanged(items[i]),
-                      ),
-                    ),
-                ],
               ),
+            ),
+          Row(
+            children: [
+              for (var i = 0; i < count; i++)
+                Expanded(
+                  child: _Segment(
+                    label: labelBuilder?.call(items[i]) ?? items[i].toString(),
+                    icon: iconBuilder?.call(items[i]),
+                    showLabel: showLabels,
+                    iconSize: iconSize,
+                    color: i == selectedIndex ? selectedText : unselectedText,
+                    isSelected: i == selectedIndex,
+                    labelStyle: labelStyle,
+                    animationDuration: animationDuration,
+                    onTap: !enabled || i == selectedIndex ? null : () => onChanged(items[i]),
+                  ),
+                ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
 
     if (!expand) control = IntrinsicWidth(child: control);

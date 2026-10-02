@@ -2,7 +2,7 @@ extension MapX<K, V> on Map<K, V> {
   /// Returns the value for [key], or [defaultValue] when the key is absent.
   ///
   /// Example: `map.getOrDefault('missing', 'fallback')` → `'fallback'`
-  V getOrDefault(K key, V defaultValue) => this[key] ?? defaultValue;
+  V getOrDefault(K key, V defaultValue) => containsKey(key) ? this[key] as V : defaultValue;
 
   /// Returns a new map with every value transformed by [transform].
   ///

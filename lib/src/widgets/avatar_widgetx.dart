@@ -36,13 +36,16 @@ class AvatarWidgetx extends StatelessWidget {
     this.badgeTextColor,
   });
 
+  // Takes whole characters (grapheme clusters), not UTF-16 code units, so an
+  // emoji or accented name never yields half a surrogate pair.
   String get _initials {
-    if (name == null || name!.trim().isEmpty) return '?';
-    final parts = name!.trim().split(RegExp(r'\s+'));
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
     if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      return '${parts[0].characters.first}${parts[1].characters.first}'.toUpperCase();
     }
-    return parts[0][0].toUpperCase();
+    return parts[0].characters.first.toUpperCase();
   }
 
   @override

@@ -12,6 +12,6 @@ abstract class VxWidgetContextBuilder<T extends Widget> {
   T make(BuildContext context, {Key? key});
 }
 
-abstract class VxTextSpanBuilder<TextSpan> {
-  TextSpan make({Key? key});
+abstract class VxTextSpanBuilder<T> {
+  T make({Key? key});
 }

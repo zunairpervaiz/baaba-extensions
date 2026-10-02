@@ -16,6 +16,7 @@ export 'src/utils/default_configs.dart';
 export 'src/utils/enums.dart';
 // Utils
 export 'src/utils/formx.dart';
+export 'src/utils/grouped_digits_formatterx.dart';
 export 'src/utils/paginatorx.dart';
 export 'src/utils/patterns.dart';
 export 'src/utils/time_formatter.dart';

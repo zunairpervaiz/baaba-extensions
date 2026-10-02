@@ -5,6 +5,7 @@ extension DurationX on Duration {
   ///
   /// Example: `const Duration(hours: 2, minutes: 30).format()` → `'2h 30m'`
   String format() {
+    if (isNegative) return '-${(-this).format()}';
     if (inDays > 0) {
       final h = inHours.remainder(24);
       return h > 0 ? '${inDays}d ${h}h' : '${inDays}d';
@@ -36,8 +37,16 @@ extension DurationX on Duration {
   /// Returns true when this duration is exactly zero.
   bool get isZero => inMicroseconds == 0;
 
-  /// Returns a new [Duration] scaled by [factor].
+  /// Returns this duration as a clock reading — `mm:ss`, or `h:mm:ss` once it
+  /// reaches an hour — for countdowns, OTP timers, and media lengths.
   ///
-  /// Example: `const Duration(seconds: 10) * 2.5` → `Duration(seconds: 25)`
-  Duration operator *(double factor) => Duration(microseconds: (inMicroseconds * factor).round());
+  /// Example: `const Duration(minutes: 4, seconds: 59).toClock()` → `'04:59'`;
+  /// `const Duration(hours: 1, minutes: 4, seconds: 59).toClock()` → `'1:04:59'`
+  String toClock() {
+    final value = isNegative ? -this : this;
+    final h = value.inHours;
+    final m = value.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '${isNegative ? '-' : ''}${h > 0 ? '$h:$m:$s' : '$m:$s'}';
+  }
 }

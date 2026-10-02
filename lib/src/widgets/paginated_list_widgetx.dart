@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../dialogx_extensions.dart';
 import '../scrollx_extensions.dart';
@@ -61,6 +62,23 @@ typedef PaginationErrorBuilderX = Widget Function(BuildContext context, Object? 
 /// too-short first page from stranding the list — it loads until the viewport
 /// is actually scrollable, capped by [maxAutoFillPages].
 ///
+/// **Changing the query** — when the widget builds its own paginator from
+/// [fetchPage] or [fetchItems], a new fetcher passed on rebuild is picked up
+/// for every later request, but does not by itself reload: an inline closure
+/// is a new object on every build, so reloading on identity would refetch on
+/// every parent rebuild. Pass the query or filter as [reloadOn] to reload
+/// from the first page when it changes:
+///
+/// ```dart
+/// PaginatedListWidgetx<User>(
+///   fetchItems: (page) => api.searchUsers(query, page: page),
+///   reloadOn: query,
+///   itemBuilder: (context, user, index) => UserTile(user),
+/// )
+/// ```
+///
+/// With your own [controller], call [PaginatorX.updateFetcher] instead.
+///
 /// **Nested inside another scrollable** — with `shrinkWrap: true` and
 /// `physics: NeverScrollableScrollPhysics()`, this widget cannot observe the
 /// outer scroll view. Pass the outer controller as [parentScrollController] so
@@ -78,6 +96,14 @@ class PaginatedListWidgetx<T> extends StatefulWidget {
 
   /// Loads one page as a plain list; `hasMore` is inferred from [pageSize].
   final SimplePageFetcherX<T>? fetchItems;
+
+  /// Reloads from the first page, with the current [fetchPage] or
+  /// [fetchItems], whenever this value changes between builds.
+  ///
+  /// Use it for a list whose request depends on a search query or filter.
+  /// Ignored when a [controller] is supplied — call
+  /// [PaginatorX.updateFetcher] on it instead.
+  final Object? reloadOn;
 
   /// Items expected per page, used to infer `hasMore`.
   /// Defaults to `defaultPaginationPageSizeGlobal`.
@@ -242,6 +268,7 @@ class PaginatedListWidgetx<T> extends StatefulWidget {
     this.controller,
     this.fetchPage,
     this.fetchItems,
+    this.reloadOn,
     this.pageSize,
     this.firstPage = 1,
     this.timeout,
@@ -336,13 +363,32 @@ class _PaginatedListWidgetxState<T> extends State<PaginatedListWidgetx<T>> {
       widget.parentScrollController?.addListener(_onParentScroll);
     }
 
+    // A paginator built from a fetcher takes the latest fetcher on every
+    // rebuild, so later pages and refreshes see the current query. Swapping it
+    // must not reload by itself — an inline closure differs on every build —
+    // so only a changed reloadOn restarts from the first page.
+    if (_ownsPaginator && widget.controller == null) {
+      final fetcher = _currentFetcher();
+      final reload = widget.reloadOn != oldWidget.reloadOn;
+      if (fetcher != null && (reload || widget.fetchPage != oldWidget.fetchPage || widget.fetchItems != oldWidget.fetchItems)) {
+        if (reload) {
+          _autoFillPages = 0;
+          _cancelledErrorSeq = -1;
+        }
+        _paginator.updateFetcher(fetcher, reload: reload);
+      }
+    }
+
     // Only an explicitly supplied controller can change identity; a fetcher
-    // swap is handled through PaginatorX.updateFetcher by the caller.
-    if (widget.controller != oldWidget.controller && widget.controller != null) {
+    // swap on a caller's controller is handled through
+    // PaginatorX.updateFetcher by the caller.
+    if (widget.controller != oldWidget.controller) {
       _paginator.removeListener(_onPaginatorChanged);
       if (_ownsPaginator) _paginator.dispose();
-      _ownsPaginator = false;
-      _paginator = widget.controller!;
+      // Dropping the caller's controller falls back to a paginator built from
+      // the fetcher; the caller's controller is left for the caller to dispose.
+      _paginator = widget.controller ?? _resolvePaginator();
+      _ownsPaginator = widget.controller == null;
       _paginator.addListener(_onPaginatorChanged);
       _wasError = _paginator.hasError;
       _autoFillPages = 0;
@@ -360,6 +406,16 @@ class _PaginatedListWidgetxState<T> extends State<PaginatedListWidgetx<T>> {
     _paginator.removeListener(_onPaginatorChanged);
     if (_ownsPaginator) _paginator.dispose();
     super.dispose();
+  }
+
+  /// The widget's fetcher as a [PageFetcherX], or `null` in controller mode.
+  PageFetcherX<T>? _currentFetcher() {
+    final fetchPage = widget.fetchPage;
+    if (fetchPage != null) return fetchPage;
+    final fetchItems = widget.fetchItems;
+    if (fetchItems == null) return null;
+    // Same adaptation as PaginatorX.simple, so hasMore is still inferred.
+    return (page, _) async => PageX<T>(items: await fetchItems(page));
   }
 
   PaginatorX<T> _resolvePaginator() {
@@ -558,7 +614,7 @@ class _PaginatedListWidgetxState<T> extends State<PaginatedListWidgetx<T>> {
       reverse: widget.reverse,
       scrollDirection: widget.scrollDirection,
       primary: widget.primary,
-      cacheExtent: widget.cacheExtent,
+      scrollCacheExtent: widget.cacheExtent == null ? null : ScrollCacheExtent.pixels(widget.cacheExtent!),
       keyboardDismissBehavior: widget.keyboardDismissBehavior,
       clipBehavior: widget.clipBehavior,
       restorationId: widget.restorationId,

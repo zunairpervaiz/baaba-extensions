@@ -1,3 +1,4 @@
+import 'package:baaba_extensions/src/date_timex_extensions.dart';
 import 'package:flutter/material.dart';
 
 extension NumX on num {
@@ -52,7 +53,7 @@ extension NumDurationX on int {
 
 extension NumTimeX on int {
   /// Returns a [DateTime] this many days before now.
-  DateTime get daysAgo => DateTime.now().subtract(Duration(days: this));
+  DateTime get daysAgo => DateTime.now().shiftDaysX(-this);
 
   /// Returns a [DateTime] this many hours before now.
   DateTime get hoursAgo => DateTime.now().subtract(Duration(hours: this));
@@ -64,7 +65,7 @@ extension NumTimeX on int {
   DateTime get secondsAgo => DateTime.now().subtract(Duration(seconds: this));
 
   /// Returns a [DateTime] this many days from now.
-  DateTime get daysFromNow => DateTime.now().add(Duration(days: this));
+  DateTime get daysFromNow => DateTime.now().shiftDaysX(this);
 
   /// Returns a [DateTime] this many hours from now.
   DateTime get hoursFromNow => DateTime.now().add(Duration(hours: this));
@@ -102,8 +103,9 @@ extension NumPaddingX on num {
   /// Returns the ordinal string for this integer, e.g. `1` → `'1st'`.
   String get ordinal {
     final n = toInt();
-    if (n % 100 >= 11 && n % 100 <= 13) return '${n}th';
-    switch (n % 10) {
+    final abs = n.abs();
+    if (abs % 100 >= 11 && abs % 100 <= 13) return '${n}th';
+    switch (abs % 10) {
       case 1:
         return '${n}st';
       case 2:

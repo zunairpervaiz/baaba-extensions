@@ -100,9 +100,19 @@ class SwiperWidgetx extends StatefulWidget {
   /// Defaults to matching platform conventions.
   final ScrollPhysics? scrollPhysics;
 
-  /// [pageController] is created using the properties passed to the constructor
-  /// and can be used to control the [PageView] it is passed to.
-  final PageController pageController;
+  /// The [PageController] driving the carousel's [PageView].
+  ///
+  /// It is created, owned and disposed by the carousel's state, built from
+  /// [viewportFraction], [initialPage], [realPage] and [enableInfiniteScroll],
+  /// and recreated only when one of those changes. It is available only while
+  /// this widget is the one mounted; reading it otherwise throws a
+  /// [StateError].
+  PageController get pageController =>
+      _controllerHolder.controller ?? (throw StateError('SwiperWidgetx: pageController is only available while the carousel is mounted.'));
+
+  // Lets the state hand its controller to the widget methods below without the
+  // widget creating (and leaking) a controller of its own on every rebuild.
+  final _SwiperControllerHolder _controllerHolder;
 
   /// [isFastScrollingEnabled] can be used to scrolling fast the [PageView].
   /// But it will not work if [autoPlay] is enabled. It also sets the [scrollPhysics] to [ClampingScrollPhysics].
@@ -125,7 +135,7 @@ class SwiperWidgetx extends StatefulWidget {
   /// Jumps the page position from its current value to the given value,
   /// without animation, and without checking if the new value is in range.
   void jumpToPage(int page) {
-    final index = _getRealIndex(pageController.page!.toInt(), realPage - initialPage as int, itemCount);
+    final index = _getRealIndex(pageController.page!.toInt(), (realPage - initialPage).toInt(), itemCount);
     return pageController.jumpToPage(pageController.page!.toInt() + page - index);
   }
 
@@ -134,7 +144,7 @@ class SwiperWidgetx extends StatefulWidget {
   /// The animation lasts for the given duration and follows the given curve.
   /// The returned [Future] resolves when the animation completes.
   Future<void> animateToPage(int page, {required Duration duration, required Curve curve}) {
-    final index = _getRealIndex(pageController.page!.toInt(), realPage - initialPage as int, itemCount);
+    final index = _getRealIndex(pageController.page!.toInt(), (realPage - initialPage).toInt(), itemCount);
     return pageController.animateToPage(pageController.page!.toInt() + page - index, duration: duration, curve: curve);
   }
 
@@ -161,10 +171,7 @@ class SwiperWidgetx extends StatefulWidget {
   }) : realPage = enableInfiniteScroll ? realPage + initialPage : initialPage,
        itemCount = items.length,
        itemBuilder = null,
-       pageController = PageController(
-         viewportFraction: viewportFraction as double,
-         initialPage: enableInfiniteScroll ? realPage + (initialPage as int) : initialPage as int,
-       );
+       _controllerHolder = _SwiperControllerHolder();
 
   SwiperWidgetx.builder({
     super.key,
@@ -189,34 +196,59 @@ class SwiperWidgetx extends StatefulWidget {
     this.scrollDirection = Axis.horizontal,
   }) : realPage = enableInfiniteScroll ? realPage + initialPage : initialPage,
        items = null,
-       pageController = PageController(
-         viewportFraction: viewportFraction as double,
-         initialPage: enableInfiniteScroll ? realPage + (initialPage as int) : initialPage as int,
-       );
+       _controllerHolder = _SwiperControllerHolder();
 
   @override
   SwiperWidgetxState createState() => SwiperWidgetxState();
 }
 
+class _SwiperControllerHolder {
+  PageController? controller;
+}
+
 class SwiperWidgetxState extends State<SwiperWidgetx> with TickerProviderStateMixin {
   Timer? timer;
+  late PageController _controller;
 
   @override
   void initState() {
     super.initState();
+    _controller = _createController();
+    widget._controllerHolder.controller = _controller;
     timer = getTimer();
+  }
+
+  // widget.realPage already folds in initialPage and enableInfiniteScroll.
+  PageController _createController() => PageController(viewportFraction: widget.viewportFraction.toDouble(), initialPage: widget.realPage.toInt());
+
+  @override
+  void didUpdateWidget(covariant SwiperWidgetx oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewportFraction != widget.viewportFraction ||
+        oldWidget.initialPage != widget.initialPage ||
+        oldWidget.realPage != widget.realPage ||
+        oldWidget.enableInfiniteScroll != widget.enableInfiniteScroll) {
+      final previous = _controller;
+      _controller = _createController();
+      // The PageView detaches from the old controller during this frame's
+      // build, so it is only safe to dispose once the frame is done.
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    }
+    if (!identical(oldWidget._controllerHolder, widget._controllerHolder)) oldWidget._controllerHolder.controller = null;
+    widget._controllerHolder.controller = _controller;
   }
 
   Timer? getTimer() {
     return widget.autoPlay
         ? Timer.periodic(widget.autoPlayInterval, (_) {
-            widget.pageController.nextPage(duration: widget.autoPlayAnimationDuration, curve: widget.autoPlayCurve);
+            if (widget.itemCount <= 0 || !_controller.hasClients) return;
+            _controller.nextPage(duration: widget.autoPlayAnimationDuration, curve: widget.autoPlayCurve);
           })
         : null;
   }
 
   void pauseOnTouch() {
-    timer!.cancel();
+    timer?.cancel();
     timer = Timer(widget.pauseAutoPlayOnTouch!, () {
       timer = getTimer();
     });
@@ -234,8 +266,8 @@ class SwiperWidgetxState extends State<SwiperWidgetx> with TickerProviderStateMi
           final double v = (p - pos.position.dx) / (DateTime.now().millisecondsSinceEpoch - t!);
           if (v < -2 || v > 2) {
             final vx = (v * 1.2).isFinite ? (v * 1.2).round() : 0;
-            widget.pageController.animateToPage(
-              widget.pageController.page!.toInt() + vx,
+            _controller.animateToPage(
+              _controller.page!.toInt() + vx,
               duration: Duration(milliseconds: 400),
               curve: Curves.easeOutCubic,
             );
@@ -266,38 +298,44 @@ class SwiperWidgetxState extends State<SwiperWidgetx> with TickerProviderStateMi
 
   @override
   void dispose() {
-    super.dispose();
     timer?.cancel();
+    widget._controllerHolder.controller = null;
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Nothing to page through; the item lookups below would otherwise index an
+    // empty list (or call itemBuilder with a phantom index 0).
+    if (widget.itemCount <= 0) return const SizedBox.shrink();
+
     return getWrapper(
       PageView.builder(
         physics: widget.isFastScrollingEnabled ? ClampingScrollPhysics() : widget.scrollPhysics,
         scrollDirection: widget.scrollDirection,
-        controller: widget.pageController,
+        controller: _controller,
         reverse: widget.reverse,
         itemCount: widget.enableInfiniteScroll ? null : widget.itemCount,
         onPageChanged: (int index) {
-          final int currentPage = _getRealIndex(index + (widget.initialPage as int), widget.realPage as int, widget.itemCount);
+          final int currentPage = _getRealIndex(index + widget.initialPage.toInt(), widget.realPage.toInt(), widget.itemCount);
           if (widget.onPageChanged != null) {
             widget.onPageChanged!(currentPage);
           }
         },
         itemBuilder: (context, i) {
-          final int index = _getRealIndex(i + (widget.initialPage as int), widget.realPage as int, widget.itemCount);
+          final int index = _getRealIndex(i + widget.initialPage.toInt(), widget.realPage.toInt(), widget.itemCount);
           return AnimatedBuilder(
-            animation: widget.pageController,
+            animation: _controller,
             child: (widget.items != null ? widget.items![index] : widget.itemBuilder!(context, index)),
             builder: (BuildContext context, child) {
               double? distortionValue = 1.0;
               if (widget.enlargeCenterPage != null && widget.enlargeCenterPage == true) {
                 double itemOffset;
                 try {
-                  itemOffset = widget.pageController.page! - i;
+                  itemOffset = _controller.page! - i;
                 } catch (e) {
-                  final BuildContext storageContext = widget.pageController.position.context.storageContext;
+                  final BuildContext storageContext = _controller.position.context.storageContext;
                   final double? previousSavedPosition = PageStorage.of(storageContext).readState(storageContext) as double?;
 
                   if (previousSavedPosition != null) {
@@ -338,5 +376,5 @@ int _remainder(int input, int source) {
     return 0;
   }
   final int result = input % source;
-  return result < 0 ? source = result : result;
+  return result < 0 ? source + result : result;
 }

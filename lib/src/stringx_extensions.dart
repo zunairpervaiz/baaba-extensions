@@ -2,18 +2,16 @@ import 'dart:convert';
 
 import 'package:baaba_extensions/src/utils/default_configs.dart';
 import 'package:baaba_extensions/src/utils/enums.dart';
+import 'package:baaba_extensions/src/utils/grouped_digits_formatterx.dart';
 import 'package:baaba_extensions/src/utils/patterns.dart';
 import 'package:flutter/services.dart' as service;
-import 'package:fluttertoast/fluttertoast.dart';
 
-RegExp alphaRegExp = RegExp(r'^[a-zA-Z]+$');
-
-bool isMaskingEnabledGlobal = true;
+final RegExp alphaRegExp = RegExp(Patterns.alpha);
 
 // String Extensions
 extension StringExtension on String? {
-  bool hasMatch(String pattern) {
-    return RegExp(pattern).hasMatch(this!);
+  bool hasMatch(String pattern, {bool caseSensitive = true}) {
+    return RegExp(pattern, caseSensitive: caseSensitive).hasMatch(validate());
   }
 
   /// Check email validation
@@ -44,34 +42,34 @@ extension StringExtension on String? {
   String capitalizeFirstLetter() => (validate().isNotEmpty) ? (this!.substring(0, 1).toUpperCase() + this!.substring(1).toLowerCase()) : validate();
 
   /// Image regex
-  bool get isImage => hasMatch(Patterns.image);
+  bool get isImage => hasMatch(Patterns.image, caseSensitive: false);
 
   /// Audio regex
-  bool get isAudio => hasMatch(Patterns.audio);
+  bool get isAudio => hasMatch(Patterns.audio, caseSensitive: false);
 
   /// Video regex
-  bool get isVideo => hasMatch(Patterns.video);
+  bool get isVideo => hasMatch(Patterns.video, caseSensitive: false);
 
   /// Txt regex
-  bool get isTxt => hasMatch(Patterns.txt);
+  bool get isTxt => hasMatch(Patterns.txt, caseSensitive: false);
 
   /// Document regex
-  bool get isDoc => hasMatch(Patterns.doc);
+  bool get isDoc => hasMatch(Patterns.doc, caseSensitive: false);
 
   /// Excel regex
-  bool get isExcel => hasMatch(Patterns.excel);
+  bool get isExcel => hasMatch(Patterns.excel, caseSensitive: false);
 
   /// PPT regex
-  bool get isPPT => hasMatch(Patterns.ppt);
+  bool get isPPT => hasMatch(Patterns.ppt, caseSensitive: false);
 
   /// Document regex
-  bool get isApk => hasMatch(Patterns.apk);
+  bool get isApk => hasMatch(Patterns.apk, caseSensitive: false);
 
   /// PDF regex
-  bool get isPdf => hasMatch(Patterns.pdf);
+  bool get isPdf => hasMatch(Patterns.pdf, caseSensitive: false);
 
   /// HTML regex
-  bool get isHtml => hasMatch(Patterns.html);
+  bool get isHtml => hasMatch(Patterns.html, caseSensitive: false);
 
   /// Return true if given String is Digit
   bool isDigit() {
@@ -90,7 +88,7 @@ extension StringExtension on String? {
     }
   }
 
-  bool get isInt => this!.isDigit();
+  bool get isInt => validate().isDigit();
 
   /// Check weather String is alpha or not
   bool isAlpha() => alphaRegExp.hasMatch(validate());
@@ -111,15 +109,17 @@ extension StringExtension on String? {
 
   /// for ex. add comma in price
   String formatNumberWithComma({String seperator = ','}) {
-    return validate().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}$seperator');
+    // Group only the integer part, so the digits after a decimal point stay as they are.
+    final value = validate();
+    final dot = value.indexOf('.');
+    final integer = dot == -1 ? value : value.substring(0, dot);
+    final rest = dot == -1 ? '' : value.substring(dot);
+    return integer.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}$seperator') + rest;
   }
 
   /// It reverses the String
   String get reverse {
-    if (validate().isEmpty) {
-      return '';
-    }
-    return toListX().reversed.reduce((value, element) => value += element);
+    return String.fromCharCodes(validate().runes.toList().reversed);
   }
 
   /// It return list of single character from String
@@ -130,7 +130,7 @@ extension StringExtension on String? {
   /// Splits from a [pattern] and returns remaining String after that
   String splitAfter(Pattern pattern) {
     ArgumentError.checkNotNull(pattern, 'pattern');
-    var matchIterator = pattern.allMatches(this!).iterator;
+    var matchIterator = pattern.allMatches(validate()).iterator;
 
     if (matchIterator.moveNext()) {
       var match = matchIterator.current;
@@ -158,18 +158,14 @@ extension StringExtension on String? {
 
   /// It matches the String and returns between [startPattern] and [endPattern]
   String splitBetween(Pattern startPattern, Pattern endPattern) {
-    return splitAfter(startPattern).splitBefore(endPattern);
+    final after = splitAfter(startPattern);
+    final end = endPattern.allMatches(after).firstOrNull;
+    return end == null ? '' : after.substring(0, end.start);
   }
 
   /// Return int value of given string
   int toIntX({int defaultValue = 0}) {
-    if (this == null) return defaultValue;
-
-    if (isDigit()) {
-      return int.parse(this!);
-    } else {
-      return defaultValue;
-    }
+    return int.tryParse(validate(), radix: 10) ?? defaultValue;
   }
 
   /// Return double value of given string
@@ -184,17 +180,7 @@ extension StringExtension on String? {
   }
 
   /// Removes white space from given String
-  String removeAllWhiteSpace() => validate().replaceAll(RegExp(r"\s+\b|\b\s"), "");
-
-  /// toast a String
-  void toastString() {
-    Fluttertoast.showToast(
-      msg: validate(),
-      backgroundColor: defaultToastBackgroundColor,
-      textColor: defaultToastTextColor,
-      gravity: defaultToastGravityGlobal,
-    );
-  }
+  String removeAllWhiteSpace() => validate().replaceAll(RegExp(r'\s+'), '');
 
   /// Returns only numbers from a string trim Whitespaces
   String getNumericOnly({bool aFirstWordOnly = false}) {
@@ -214,7 +200,7 @@ extension StringExtension on String? {
 
   /// Returns the given string n times
   String repeat(int n, {String separator = ''}) {
-    if (n < 0) ArgumentError('n must be a positive value greater then 0');
+    if (n < 0) throw ArgumentError.value(n, 'n', 'must not be negative');
 
     var repeatedString = '';
 
@@ -228,7 +214,7 @@ extension StringExtension on String? {
     return repeatedString;
   }
 
-  /// Return average read time duration of given String in seconds
+  /// Returns the average reading time of this String in minutes.
   double calculateReadTime({int wordsPerMinute = 200}) {
     var words = countWords();
     var number = words / wordsPerMinute;
@@ -237,8 +223,8 @@ extension StringExtension on String? {
 
   /// Return number of words ina given String
   int countWords() {
-    var words = validate().trim().split(RegExp(r'(\s+)'));
-    return words.length;
+    final text = validate().trim();
+    return text.isEmpty ? 0 : text.split(RegExp(r'\s+')).length;
   }
 
   /// Generate slug of a given String
@@ -272,12 +258,12 @@ extension StringExtension on String? {
 
   ///  eg. Text("Dr. ${VARIABLE_NAME}"); =>  Text("VARIABLE_NAME.prefixText("Dr.")");
   String prefixText({required String value}) {
-    return '$value$this';
+    return '$value${validate()}';
   }
 
   ///  eg. Text("${VARIABLE_NAME} /-"); =>  Text("VARIABLE_NAME.suffixText("/-")");
   String suffixText({required String value}) {
-    return '$this$value';
+    return '${validate()}$value';
   }
 
   /// This function returns given string with each word capital
@@ -345,7 +331,7 @@ extension StringExtension on String? {
     }
 
     final parts = data.split('@');
-    if (parts.length == 2) {
+    if (parts.length == 2 && parts[0].isNotEmpty) {
       final namePart = parts[0].substring(0, 1);
       final domainPart = parts[1];
       final maskedName = namePart + '*' * (parts[0].length - 1);
@@ -354,7 +340,7 @@ extension StringExtension on String? {
     return data;
   }
 
-  /// Mask phone (e.g., 1234567890 -> 12****7890)
+  /// Mask phone (e.g., 1234567890 -> 12******90)
   String maskPhone({bool? isMaskingEnabled}) {
     String data = validate();
 
@@ -389,6 +375,23 @@ extension StringExtension on String? {
     return this;
   }
 
+  /// Returns this CNIC grouped as `00000-0000000-0`, or the string unchanged
+  /// when it does not hold exactly 13 digits.
+  ///
+  /// Example: `'3520212345671'.formatCnic` → `'35202-1234567-1'`
+  String get formatCnic {
+    final digits = validate().replaceAll(RegExp(r'[\s-]'), '');
+    if (!RegExp(Patterns.cnicDigits).hasMatch(digits)) return validate();
+    return const GroupedDigitsInputFormatterX.cnic().format(digits);
+  }
+
+  /// Returns true for a Pakistani CNIC, written either `00000-0000000-0` or as
+  /// 13 bare digits.
+  bool get isCnic {
+    final value = validate();
+    return RegExp(Patterns.cnic).hasMatch(value) || RegExp(Patterns.cnicDigits).hasMatch(value);
+  }
+
   String? get toDisplayFormattedPhone {
     if (this == null || this!.isEmpty) return "N/A";
 
@@ -401,6 +404,12 @@ extension StringExtension on String? {
   /// Returns true if this String is null, empty or consists of only whitespace characters.
   bool get isNullOrBlank => this == null || this!.trim().isEmpty;
 
+  /// Returns [fallback] when this String is null, empty, or only whitespace,
+  /// otherwise returns this String unchanged.
+  ///
+  /// Example: `user.middleName.ifBlank('—')`
+  String ifBlank(String fallback) => isNullOrBlank ? fallback : validate();
+
   /// Compares this String to another String, ignoring case considerations.
   bool equalsIgnoreCase(String? other) =>
       (this == null && other == null) || (this != null && other != null && this!.toLowerCase() == other.toLowerCase());
@@ -410,20 +419,20 @@ extension StringExtension on String? {
   String toCamelCase() {
     if (isEmptyOrNull) return '';
     String value = validate();
-    value = value.replaceAllMapped(RegExp(r'[\s_-]+(\w)'), (Match m) {
-      return m.group(1)!.toUpperCase();
-    });
-    return value[0].toLowerCase() + value.substring(1);
+    final words = _caseWords(value);
+    if (words.isEmpty) return '';
+    return words.first.toLowerCase() + words.skip(1).map(_capitalizeWord).join();
   }
 
   /// Truncates this String to a specified [maxLength] and appends an [ellipsis] string.
-  /// Example: "This is a long string".ellipsize(10) returns "This is a..."
+  /// Example: "This is a long string".ellipsize(10) returns "This is..."
   String ellipsize(int maxLength, {String ellipsis = "..."}) {
     if (isEmptyOrNull) return '';
     String value = validate();
     if (value.length <= maxLength) {
       return value;
     }
+    if (maxLength <= ellipsis.length) return ellipsis.substring(0, maxLength.clamp(0, ellipsis.length));
     return value.substring(0, maxLength - ellipsis.length) + ellipsis;
   }
 
@@ -432,11 +441,7 @@ extension StringExtension on String? {
   String toPascalCase() {
     if (isEmptyOrNull) return '';
     String value = validate();
-    value = value.split(RegExp(r'[\s_-]+')).map((word) {
-      if (word.isEmpty) return '';
-      return word[0].toUpperCase() + word.substring(1).toLowerCase();
-    }).join();
-    return value;
+    return _caseWords(value).map(_capitalizeWord).join();
   }
 
   /// Converts this String to snake_case.
@@ -444,29 +449,15 @@ extension StringExtension on String? {
   String toSnakeCase() {
     if (isEmptyOrNull) return '';
     String value = validate();
-    value = value.replaceAllMapped(RegExp(r'([A-Z])'), (Match m) {
-      return '_${m.group(1)!.toLowerCase()}';
-    });
-    value = value.replaceAll(RegExp(r'[\s-]+'), '_');
-    if (value.startsWith('_')) {
-      value = value.substring(1);
-    }
-    return value.toLowerCase();
+    return _caseWords(value).map((word) => word.toLowerCase()).join('_');
   }
 
   /// Converts this String to kebab-case.
-  /// Example: "helloWorld" or "Hello World" becomes "hello-kebab".
+  /// Example: "helloWorld" or "Hello World" becomes "hello-world".
   String toKebabCase() {
     if (isEmptyOrNull) return '';
     String value = validate();
-    value = value.replaceAllMapped(RegExp(r'([A-Z])'), (Match m) {
-      return '-${m.group(1)!.toLowerCase()}';
-    });
-    value = value.replaceAll(RegExp(r'[\s_]+'), '-');
-    if (value.startsWith('-')) {
-      value = value.substring(1);
-    }
-    return value.toLowerCase();
+    return _caseWords(value).map((word) => word.toLowerCase()).join('-');
   }
 
   /// Extracts initials from a string.
@@ -517,3 +508,11 @@ extension StringExtension on String? {
     return buffer.toString();
   }
 }
+
+// Splits text into words for the case converters: at spaces, `_` and `-`,
+// and at case changes, keeping acronyms together — `'userID'` → `user`, `ID`.
+final RegExp _caseWordRegExp = RegExp(r'\p{Lu}+(?!\p{Ll})\p{N}*|\p{Lu}?[\p{Ll}\p{N}]+|\p{Lt}\p{Ll}*|[\p{Lo}\p{N}]+', unicode: true);
+
+List<String> _caseWords(String value) => _caseWordRegExp.allMatches(value).map((m) => m[0]!).toList();
+
+String _capitalizeWord(String word) => word[0].toUpperCase() + word.substring(1).toLowerCase();
